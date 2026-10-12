@@ -119,6 +119,7 @@ const STR = {
   orderNote:         { zh: "备注（可选）", my: "မှတ်ချက် (မထည့်လည်းရ)", en: "Note (optional)" },
   notePlaceholder:   { zh: "例如：少辣、不要香菜…", my: "ဥပမာ - အစပ်လျှော့၊ နံနံပင်မထည့်ပါနဲ့…", en: "e.g. less spicy, no cilantro…" },
   fillAddressPhone:  { zh: "请填写收货地址和电话", my: "ပို့ဆောင်ရမည့်လိပ်စာနဲ့ ဖုန်းနံပါတ် ဖြည့်ပါ", en: "Please fill in delivery address and phone" },
+  fillShopInfo:      { zh: "请填写店铺名称和店主姓名", my: "ဆိုင်နာမည်နဲ့ ဆိုင်ရှင်နာမည် ဖြည့်ပါ", en: "Please enter the shop name and owner name" },
   deliveryFee:       { zh: "配送费", my: "ပို့ဆောင်ခ", en: "Delivery fee" },
   deliveryFeeYuan:   { zh: "配送费（元 ¥）", my: "ပို့ဆောင်ခ (ယွမ် ¥)", en: "Delivery fee (¥ yuan)" },
   wechatId:          { zh: "微信号", my: "WeChat ID", en: "WeChat ID" },

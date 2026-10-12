@@ -246,8 +246,11 @@ function viewProfile() {
     '<div class="tab' + (regRole === "customer" ? " active" : "") + '" onclick="setRegRole(\'customer\')">' + esc(t("iAmCustomer")) + "</div>" +
     '<div class="tab' + (regRole === "vendor" ? " active" : "") + '" onclick="setRegRole(\'vendor\')">' + esc(t("iAmVendor")) + "</div>" +
     "</div></div>" +
-    '<div class="field"><label>' + esc(t("firstName")) + '</label><input id="f-fn"></div>' +
-    '<div class="field"><label>' + esc(t("lastName")) + '</label><input id="f-ln"></div>' +
+    (regRole === "vendor"
+      ? '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="f-shopname"></div>' +
+        '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="f-ownername"></div>'
+      : '<div class="field"><label>' + esc(t("firstName")) + '</label><input id="f-fn"></div>' +
+        '<div class="field"><label>' + esc(t("lastName")) + '</label><input id="f-ln"></div>') +
     '<div class="field"><label>' + esc(t("phoneOrEmail")) + '</label><input id="f-contact" placeholder="09xxxxxxxxx / you@gmail.com"></div>' +
     '<div class="field"><label>' + esc(t("password")) + '</label><input id="f-pass2" type="password"></div>' +
     '<button class="btn" style="width:100%" onclick="doCreateAccount()">' + esc(t("createAccount")) + "</button>" +
@@ -268,14 +271,18 @@ function viewProfile() {
 }
 function setRegRole(r) { regRole = r; viewProfile(); }
 async function doCreateAccount() {
-  const fn = document.getElementById("f-fn").value.trim();
-  const ln = document.getElementById("f-ln").value.trim();
+  const isVendor = regRole === "vendor";
+  const shopNm = isVendor ? document.getElementById("f-shopname").value.trim() : "";
+  const ownerNm = isVendor ? document.getElementById("f-ownername").value.trim() : "";
+  const fn = !isVendor ? document.getElementById("f-fn").value.trim() : "";
+  const ln = !isVendor ? document.getElementById("f-ln").value.trim() : "";
   const contact = document.getElementById("f-contact").value.trim();
   const pass = document.getElementById("f-pass2").value;
   const errBox = document.getElementById("auth-err");
   const showErr = (m) => { if (errBox) errBox.textContent = "⚠️ " + m; };
-  const name = (fn + " " + ln).trim() || contact.split("@")[0];
+  const name = isVendor ? ownerNm : ((fn + " " + ln).trim() || contact.split("@")[0]);
   try {
+    if (isVendor && (!shopNm || !ownerNm)) throw new Error(t("fillShopInfo"));
     let email = contact, phone = "";
     if (contact.indexOf("@") < 0) {
       // Phone-number signup: Supabase email/password auth needs an email address,
@@ -299,10 +306,24 @@ async function doCreateAccount() {
     }
     // upsert: the auth-state handler may already have created a customer row
     const { error: upErr } = await sb.from("users").upsert({
-      id: user.id, role: regRole, first_name: fn, last_name: ln,
+      id: user.id, role: regRole,
+      first_name: isVendor ? ownerNm : fn,
+      last_name: isVendor ? "" : ln,
       email: contact, phone: phone
     }, { onConflict: "id" });
     if (upErr) throw upErr;
+    if (isVendor) {
+      // Create the vendor's shop right away so the dashboard is ready.
+      // (shopName() falls back to name_zh for all languages.)
+      try {
+        const ex = await sb.from("shops").select("id").eq("owner_id", user.id).limit(1);
+        if (!ex.error && (!ex.data || !ex.data.length)) {
+          await sb.from("shops").insert({
+            name_zh: shopNm, owner_name: ownerNm, owner_id: user.id, sample: false
+          });
+        }
+      } catch (e) { console.warn("auto shop create failed", e); }
+    }
     location.hash = "#/";
   } catch (e) { showErr(e.message || e); }
 }
