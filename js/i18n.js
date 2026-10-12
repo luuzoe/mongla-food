@@ -74,6 +74,7 @@ const STR = {
   buyNow:             { zh: "下单购买", my: "ဝယ်မည်", en: "Buy now" },
   confirmOrder:       { zh: "确认下单", my: "အမှာစာအတည်ပြုမည်", en: "Confirm order" },
   cancel:             { zh: "取消", my: "မလုပ်တော့ပါ", en: "Cancel" },
+  ok:                { zh: "确定", my: "အိုကေ", en: "OK" },
   orderSent:          { zh: "订单已发送到商家聊天框！", my: "အမှာစာ ဆိုင်ရှင်ရဲ့ chatbox ဆီရောက်သွားပါပြီ!", en: "Order sent to the shop's chatbox!" },
   orderItems:         { zh: "订单内容", my: "မှာယူမည့်စာရင်း", en: "Order items" },
   status_pending:     { zh: "待接单", my: "လက်ခံရန်စောင့်နေသည်", en: "Pending" },

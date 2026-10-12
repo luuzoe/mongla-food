@@ -92,6 +92,46 @@ function stopListeners() {
   unsubs = [];
 }
 function money(n) { return "¥" + Number(n || 0).toFixed(0); }
+/* ---------- in-app toast + confirm modal (replaces native alert/confirm) ---------- */
+function ensureModal() {
+  let ov = document.getElementById("appModal");
+  if (ov) return ov;
+  ov = document.createElement("div");
+  ov.id = "appModal";
+  ov.className = "modal-overlay";
+  ov.innerHTML = '<div class="modal-card"><div class="modal-msg" id="modalMsg"></div>' +
+    '<div class="modal-btns" id="modalBtns"></div></div>';
+  document.body.appendChild(ov);
+  return ov;
+}
+/* toast(msg): brief in-site popup, auto-dismisses. Message may include emoji. */
+function toast(msg) {
+  const ov = ensureModal();
+  document.getElementById("modalMsg").textContent = msg;
+  document.getElementById("modalBtns").innerHTML = "";
+  ov.classList.add("open");
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(() => ov.classList.remove("open"), 2200);
+}
+/* confirmDlg(msg): in-site confirm dialog, resolves true/false. */
+function confirmDlg(msg) {
+  return new Promise((resolve) => {
+    const ov = ensureModal();
+    clearTimeout(window._toastT);
+    document.getElementById("modalMsg").textContent = msg;
+    const btns = document.getElementById("modalBtns");
+    btns.innerHTML = "";
+    const bNo = document.createElement("button");
+    bNo.className = "btn gray"; bNo.textContent = t("cancel");
+    const bYes = document.createElement("button");
+    bYes.className = "btn"; bYes.textContent = t("ok");
+    const done = (v) => { ov.classList.remove("open"); resolve(v); };
+    bNo.onclick = () => done(false);
+    bYes.onclick = () => done(true);
+    btns.appendChild(bNo); btns.appendChild(bYes);
+    ov.classList.add("open");
+  });
+}
 function cartCount() {
   return Object.values(cart.items).reduce((a, it) => a + it.qty, 0);
 }
@@ -792,8 +832,8 @@ async function checkoutAll() {
   const addr = (document.getElementById("co-addr").value || "").trim();
   const phone = (document.getElementById("co-phone").value || "").trim();
   const note = (document.getElementById("co-note").value || "").trim();
-  if (!addr || !phone) { alert("⚠️ " + t("fillAddressPhone")); return; }
-  if (!confirm(t("confirmOrder") + " · " + money(cartGrandTotal()))) return;
+  if (!addr || !phone) { toast("⚠️ " + t("fillAddressPhone")); return; }
+  if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) return;
   try {
     for (const sid of shopIds) {
       const items = groups[sid].map(it => ({
@@ -804,9 +844,9 @@ async function checkoutAll() {
     }
     cart = { items: {} };
     cartFees = {};
-    alert("✅ " + t("orderSent"));
+    toast("✅ " + t("orderSent"));
     location.hash = "#/orders";
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 /* Create one order + drop the item list as a message into the vendor's chatbox. */
 async function placeShopOrder(shopId, items, delivery) {
@@ -928,7 +968,7 @@ async function sendMsg(convId) {
     });
     if (error) throw error;
     await sb.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", convId);
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 
 /* ---------- customer orders ---------- */
@@ -1002,15 +1042,15 @@ async function setStatus(orderId, convId, status) {
       });
     }
     renderAll();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 async function cancelMyOrder(orderId) {
-  if (!confirm(t("cancelOrder") + "?")) return;
+  if (!(await confirmDlg(t("cancelOrder") + "?"))) return;
   try {
     const { error } = await sb.from("orders").update({ status: "cancelled" }).eq("id", orderId);
     if (error) throw error;
     renderAll();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 
 /* ---------- vendor dashboard ---------- */
@@ -1080,7 +1120,7 @@ async function saveShop() {
     owner_id: currentUser.id,
     sample: false
   };
-  if (!data.name_zh) { alert("⚠️"); return; }
+  if (!data.name_zh) { toast("⚠️"); return; }
   try {
     if (myShop) {
       const { error } = await sb.from("shops").update(data).eq("id", myShop.id);
@@ -1090,7 +1130,7 @@ async function saveShop() {
       if (error) throw error;
     }
     vendorTab = "info"; viewVendor();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 async function drawVendorMenu() {
   const box = document.getElementById("vtab");
@@ -1115,7 +1155,7 @@ async function addMenuItem() {
   const nmy = "", nen = "";
   const price = Number(document.getElementById("m-price").value);
   const photoUrl = document.getElementById("m-photo").value.trim();
-  if (!nzh || !(price >= 0)) { alert("⚠️"); return; }
+  if (!nzh || !(price >= 0)) { toast("⚠️"); return; }
   try {
     const { error } = await sb.from("menu_items").insert({
       shop_id: myShop.id,
@@ -1127,15 +1167,15 @@ async function addMenuItem() {
     });
     if (error) throw error;
     drawVendorMenu();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 async function delMenuItem(itemId) {
-  if (!confirm(t("confirmDelete"))) return;
+  if (!(await confirmDlg(t("confirmDelete")))) return;
   try {
     const { error } = await sb.from("menu_items").delete().eq("id", itemId);
     if (error) throw error;
     drawVendorMenu();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 async function drawVendorChats() {
   const box = document.getElementById("vtab");
@@ -1222,7 +1262,7 @@ async function publishPost() {
   } catch (e) { showErr(e.message || e); }
 }
 async function delPost(postId) {
-  if (!confirm(t("confirmDelete"))) return;
+  if (!(await confirmDlg(t("confirmDelete")))) return;
   try {
     // best-effort: also remove the uploaded photo from storage
     const { data: prow } = await sb.from("posts").select("photo_url").eq("id", postId).single();
@@ -1238,7 +1278,7 @@ async function delPost(postId) {
       }
     }
     drawVendorPosts();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 
 /* ---------- bottom nav (role-aware) ---------- */
@@ -1309,16 +1349,16 @@ async function viewAdmin() {
 }
 function setAdminTab(tab) { adminTab = tab; viewAdmin(); }
 async function adminDelShop(id) {
-  if (!confirm(t("confirmDelete"))) return;
+  if (!(await confirmDlg(t("confirmDelete")))) return;
   try {
     // menu_items cascade-deletes via FK
     const { error } = await sb.from("shops").delete().eq("id", id);
     if (error) throw error;
     viewAdmin();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 async function importSamples() {
-  if (!confirm(t("loadSamples") + "?")) return;
+  if (!(await confirmDlg(t("loadSamples") + "?"))) return;
   try {
     for (const s of SAMPLE_SHOPS) {
       const { menu, id, ...data } = s;
@@ -1338,12 +1378,12 @@ async function importSamples() {
       const { error: mErr } = await sb.from("menu_items").insert(rows);
       if (mErr) throw mErr;
     }
-    alert("✅");
+    toast("✅");
     viewAdmin();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
 async function deleteSamples() {
-  if (!confirm(t("deleteSamples") + "?")) return;
+  if (!(await confirmDlg(t("deleteSamples") + "?"))) return;
   try {
     const { data, error } = await sb.from("shops").select("id").eq("sample", true);
     if (error) throw error;
@@ -1352,5 +1392,5 @@ async function deleteSamples() {
       if (dErr) throw dErr;
     }
     viewAdmin();
-  } catch (e) { alert("⚠️ " + e.message); }
+  } catch (e) { toast("⚠️ " + e.message); }
 }
