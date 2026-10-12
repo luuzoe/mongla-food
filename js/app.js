@@ -1080,16 +1080,23 @@ async function viewVendor() {
     body.innerHTML = '<div class="notice">' + esc(t("welcomeVendor")) + "</div>" + shopForm({});
     return;
   }
+  const shopAddr = myShop.address_zh || myShop.address_my || "";
   body.innerHTML =
-    '<div class="card" style="display:flex;align-items:center;gap:12px">' +
+    '<div class="card" style="display:flex;gap:12px">' +
     '<div style="position:relative;flex-shrink:0" onclick="document.getElementById(\'v-photo\').click()">' +
     (myShop.photo_url
       ? '<img src="' + esc(myShop.photo_url) + '" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;display:block">'
       : '<div style="width:64px;height:64px;border-radius:50%;background:#fce4ec;display:flex;align-items:center;justify-content:center;font-size:30px">🏪</div>') +
     '<div style="position:absolute;right:-2px;bottom:-2px;background:var(--pink);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid #fff">📷</div></div>' +
     '<input id="v-photo" type="file" accept="image/*" style="display:none" onchange="uploadShopPhoto()">' +
-    '<div style="min-width:0"><div style="font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(shopName(myShop)) + '</div>' +
-    '<div class="muted" style="font-size:12px">' + esc(myShop.ownerName || "") + "</div></div></div>" +
+    '<div style="flex:1;min-width:0">' +
+    '<div style="font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(shopName(myShop)) + "</div>" +
+    (myShop.ownerName ? '<div class="muted" style="font-size:13px">👤 ' + esc(myShop.ownerName) + "</div>" : "") +
+    (shopAddr ? '<div class="muted" style="font-size:13px">📍 ' + esc(shopAddr) + "</div>" : "") +
+    (myShop.phone ? '<div class="muted" style="font-size:13px">📞 ' + esc(myShop.phone) + "</div>" : "") +
+    (myShop.wechatId ? '<div class="muted" style="font-size:13px">💬 ' + esc(myShop.wechatId) + "</div>" : "") +
+    (myShop.deliveryFee > 0 ? '<div class="muted" style="font-size:13px">🛵 ' + money(myShop.deliveryFee) + "</div>" : "") +
+    "</div></div>" +
     '<div class="tabs">' +
     '<div class="tab' + (vendorTab === "info" ? " active" : "") + '" onclick="setVendorTab(\'info\')">🏪 ' + esc(t("tabShop")) + "</div>" +
     '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("menu")) + "</div>" +
