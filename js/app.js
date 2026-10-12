@@ -1082,14 +1082,15 @@ async function viewVendor() {
   }
   const shopAddr = myShop.address_zh || myShop.address_my || "";
   body.innerHTML =
-    '<div class="card" style="display:flex;gap:12px">' +
+    '<div class="card" style="display:flex;gap:12px;position:relative">' +
+    '<button class="btn small" style="position:absolute;top:8px;right:8px;padding:6px 10px" onclick="editShopInfo()">✏️</button>' +
     '<div style="position:relative;flex-shrink:0" onclick="document.getElementById(\'v-photo\').click()">' +
     (myShop.photo_url
       ? '<img src="' + esc(myShop.photo_url) + '" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;display:block">'
       : '<div style="width:64px;height:64px;border-radius:50%;background:#fce4ec;display:flex;align-items:center;justify-content:center;font-size:30px">🏪</div>') +
     '<div style="position:absolute;right:-2px;bottom:-2px;background:var(--pink);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid #fff">📷</div></div>' +
     '<input id="v-photo" type="file" accept="image/*" style="display:none" onchange="uploadShopPhoto()">' +
-    '<div style="flex:1;min-width:0">' +
+    '<div style="flex:1;min-width:0;padding-right:40px">' +
     '<div style="font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(shopName(myShop)) + "</div>" +
     (myShop.ownerName ? '<div class="muted" style="font-size:13px">👤 ' + esc(myShop.ownerName) + "</div>" : "") +
     (shopAddr ? '<div class="muted" style="font-size:13px">📍 ' + esc(shopAddr) + "</div>" : "") +
@@ -1113,11 +1114,13 @@ async function viewVendor() {
 function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
 function drawVendorInfo() {
   const box = document.getElementById("vtab");
-  box.innerHTML =
-    '<button class="btn" style="width:100%;margin-bottom:12px" onclick="toggleShopForm()">✏️ ' + esc(t("editShopInfo")) + "</button>" +
-    (showShopForm ? shopForm(myShop) : "");
+  box.innerHTML = showShopForm ? shopForm(myShop) : "";
 }
-function toggleShopForm() { showShopForm = !showShopForm; drawVendorInfo(); }
+function editShopInfo() {
+  if (vendorTab === "info" && showShopForm) showShopForm = false;
+  else { vendorTab = "info"; showShopForm = true; }
+  viewVendor();
+}
 function shopForm(s) {
   const v = (k) => esc(s[k] || "");
   return '<div class="card"><h3>' + esc(myShop ? t("saveShop") : t("createShop")) + "</h3>" +
