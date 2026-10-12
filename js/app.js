@@ -283,14 +283,11 @@ function viewProfile() {
   }
   app.innerHTML =
     '<div class="card"><h2>' + (authMode === "login" ? "🔑 " + esc(t("login")) : "📝 " + esc(t("createAccount"))) + "</h2>" +
-    '<div class="field"><div class="role-pick">' +
-    '<div class="tab' + (authMode === "register" ? " active" : "") + '" onclick="setAuthMode(\'register\')">' + esc(t("createAccount")) + "</div>" +
-    '<div class="tab' + (authMode === "login" ? " active" : "") + '" onclick="setAuthMode(\'login\')">' + esc(t("login")) + "</div>" +
-    "</div></div>" +
     (authMode === "login"
       ? '<div class="field"><label>' + esc(t("phoneOrEmail")) + '</label><input id="l-contact" placeholder="09xxxxxxxxx / you@gmail.com"></div>' +
         '<div class="field"><label>' + esc(t("password")) + '</label><input id="l-pass" type="password"></div>' +
-        '<button class="btn" style="width:100%" onclick="doLogin()">' + esc(t("login")) + "</button>"
+        '<button class="btn" style="width:100%" onclick="doLogin()">' + esc(t("login")) + "</button>" +
+        '<div class="center" style="margin-top:12px"><a href="javascript:void(0)" onclick="setAuthMode(\'register\')" style="color:var(--pink);font-weight:600">' + esc(t("noAccountRegister")) + "</a></div>"
       : '<div class="field"><div class="role-pick">' +
         '<div class="tab' + (regRole === "customer" ? " active" : "") + '" onclick="setRegRole(\'customer\')">' + esc(t("iAmCustomer")) + "</div>" +
         '<div class="tab' + (regRole === "vendor" ? " active" : "") + '" onclick="setRegRole(\'vendor\')">' + esc(t("iAmVendor")) + "</div>" +
@@ -302,7 +299,8 @@ function viewProfile() {
             '<div class="field"><label>' + esc(t("lastName")) + '</label><input id="f-ln"></div>') +
         '<div class="field"><label>' + esc(t("phoneOrEmail")) + '</label><input id="f-contact" placeholder="09xxxxxxxxx / you@gmail.com"></div>' +
         '<div class="field"><label>' + esc(t("password")) + '</label><input id="f-pass2" type="password"></div>' +
-        '<button class="btn" style="width:100%" onclick="doCreateAccount()">' + esc(t("createAccount")) + "</button>") +
+        '<button class="btn" style="width:100%" onclick="doCreateAccount()">' + esc(t("createAccount")) + "</button>" +
+        '<div class="center" style="margin-top:12px"><a href="javascript:void(0)" onclick="setAuthMode(\'login\')" style="color:var(--pink);font-weight:600">' + esc(t("haveAccountLogin")) + "</a></div>") +
     '<div id="auth-err" class="muted"></div></div>' +
     '<div class="card"><div class="divider">' + esc(t("signInWith")) + "</div>" +
     '<button class="social-btn" onclick="doGoogleLogin()">🔵 ' + esc(t("googleSignIn")) + "</button>" +

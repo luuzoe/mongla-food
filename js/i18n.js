@@ -22,6 +22,8 @@ const STR = {
   createAccount:      { zh: "创建账号", my: "အကောင့်ဖွင့်မည်", en: "Create Account" },
   login:              { zh: "登录", my: "ဝင်မည်", en: "Log in" },
   loginFailed:        { zh: "登录失败，请检查账号和密码", my: "ဝင်လို့မရပါ — အကောင့်နဲ့ စကားဝှက် စစ်ပါ", en: "Login failed — check your account and password" },
+  haveAccountLogin:   { zh: "已有账号？去登录", my: "အကောင့်ရှိပြီးသားလား? ဝင်မည်", en: "Have an account? Log in" },
+  noAccountRegister:  { zh: "还没有账号？去注册", my: "အကောင့်မရှိသေးဘူးလား? ဖွင့်မည်", en: "No account yet? Sign up" },
   signInWith:         { zh: "使用以下方式登录", my: "အောက်ပါတို့ဖြင့် ဝင်ရန်", en: "Sign in with" },
   googleSignIn:       { zh: "用 Google 登录", my: "Google နဲ့ ဝင်မည်", en: "Sign in with Google" },
   wechatSignIn:       { zh: "用微信登录", my: "WeChat နဲ့ ဝင်မည်", en: "Sign in with WeChat" },
