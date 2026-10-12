@@ -122,7 +122,19 @@ const STR = {
   deliveryFee:       { zh: "配送费", my: "ပို့ဆောင်ခ", en: "Delivery fee" },
   deliveryFeeYuan:   { zh: "配送费（元 ¥）", my: "ပို့ဆောင်ခ (ယွမ် ¥)", en: "Delivery fee (¥ yuan)" },
   wechatId:          { zh: "微信号", my: "WeChat ID", en: "WeChat ID" },
-  subtotal:          { zh: "小计", my: "ပစ္စည်းဖိုး", en: "Subtotal" }
+  subtotal:          { zh: "小计", my: "ပစ္စည်းဖိုး", en: "Subtotal" },
+  feedTitle:         { zh: "商家动态", my: "ဆိုင်ရှင်များ၏ အပ်ဒိတ်များ", en: "Latest updates" },
+  posts:             { zh: "动态", my: "ပို့စ်များ", en: "Posts" },
+  createPost:        { zh: "发布动态", my: "ပို့စ်တင်မည်", en: "New post" },
+  myPosts:           { zh: "我的动态", my: "ကျွန်ုပ်၏ ပို့စ်များ", en: "My posts" },
+  postPhoto:         { zh: "上传照片", my: "ဓာတ်ပုံတင်ရန်", en: "Upload photo" },
+  postPlaceholder:   { zh: "分享今天店里有什么好吃的…", my: "ဒီနေ့ဆိုင်မှာ ဘာတွေရနိုင်လဲ မျှဝေပါ…", en: "Share what's available at your shop today…" },
+  publish:           { zh: "发布", my: "တင်မည်", en: "Publish" },
+  fillPostText:      { zh: "请填写内容和价格", my: "အကြောင်းအရာနဲ့ ဈေးနှုန်း ဖြည့်ပါ", en: "Please fill in the text and price" },
+  photoOnlyImages:   { zh: "只能上传图片文件", my: "ပုံဖိုင်သာ တင်လို့ရပါတယ်", en: "Only image files can be uploaded" },
+  photoTooBig:       { zh: "照片不能超过 5MB", my: "ဓာတ်ပုံ 5MB ထက် မကြီးရပါ", en: "Photo must be smaller than 5MB" },
+  uploadingPhoto:    { zh: "照片上传中…", my: "ဓာတ်ပုံ တင်နေသည်…", en: "Uploading photo…" },
+  noPosts:           { zh: "暂无动态", my: "ပို့စ်မရှိသေးပါ", en: "No posts yet" }
 };
 
 let LANG = localStorage.getItem("ml_lang") || "zh";

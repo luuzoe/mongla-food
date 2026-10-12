@@ -63,6 +63,14 @@ function mapOrder(r) {
     customerEmail: r.customer_email, createdAt: r.created_at
   };
 }
+function mapPost(r) {
+  if (!r) return r;
+  return {
+    id: r.id, shopId: r.shop_id, vendorUid: r.vendor_id,
+    body: r.body || "", price: Number(r.price_yuan) || 0,
+    photoUrl: r.photo_url || "", createdAt: r.created_at
+  };
+}
 
 /* ---------- helpers ---------- */
 function esc(s) {
@@ -353,7 +361,8 @@ async function viewHome() {
     '<div class="toolbar"><input type="search" id="q" placeholder="' + esc(t("searchDishes")) +
       '" value="' + esc(homeFilter.q) + '"></div>' +
     '<div class="chips" id="chips"></div>' +
-    '<h3 style="margin:4px 0 8px">🍽 ' + esc(t("unifiedMenu")) + '</h3><div class="dish-grid" id="dishGrid"></div>';
+    '<h3 style="margin:4px 0 8px">🍽 ' + esc(t("unifiedMenu")) + '</h3><div class="dish-grid" id="dishGrid"></div>' +
+    '<div id="feedSection"></div>';
   const chips = document.getElementById("chips");
   chips.innerHTML = CATEGORIES.map(c =>
     '<div class="chip' + (homeFilter.cat === c.id ? " active" : "") + '" data-cat="' + c.id + '">' +
@@ -381,6 +390,7 @@ async function viewHome() {
     }
   } catch (e) { window._allDishes = []; }
   drawDishGrid();
+  drawFeed();
   renderCartBar();
 }
 /* Register a menu item into the global dish index (used by home grid + cart).
@@ -437,6 +447,57 @@ function drawDishGrid() {
       "</div></div></div>";
   }).join("");
 }
+/* ---------- vendor posts feed (homepage + shop page) ----------
+ * Post cards are display-only (no order button): the price is informational;
+ * tapping a card opens the shop page where ordering happens. */
+function postCardHTML(p, showShop) {
+  const click = showShop ? ' onclick="location.hash=\'#/shop/' + p.shopId + "'\"" : "";
+  return '<div class="post-card"' + click + ">" +
+    (p.photoUrl ? '<div class="post-photo"><img src="' + esc(p.photoUrl) + '" alt="" loading="lazy"></div>' : "") +
+    '<div class="post-body">' +
+    '<div class="post-text">' + esc(p.body) + "</div>" +
+    '<div class="post-foot"><span class="dish-price">' + money(p.price) + "</span>" +
+    (showShop && p.shopName ? '<span class="post-shop">🏪 ' + esc(p.shopName) + "</span>" : "") +
+    "</div>" +
+    '<div class="muted">' + esc(fmtTime(p.createdAt)) + "</div>" +
+    "</div></div>";
+}
+/* Homepage feed: newest posts across ALL shops (after the product grid). */
+async function drawFeed() {
+  const box = document.getElementById("feedSection");
+  if (!box) return;
+  try {
+    const { data, error } = await sb.from("posts")
+      .select("*, shops(name_zh, name_my, name_en)")
+      .order("created_at", { ascending: false }).limit(10);
+    if (error) throw error;
+    const list = (data || []).map(r => {
+      const p = mapPost(r);
+      if (r.shops) p.shopName = shopName(r.shops);
+      return p;
+    });
+    if (!list.length) { box.innerHTML = ""; return; }
+    box.innerHTML = '<h3 style="margin:16px 0 8px">🔥 ' + esc(t("feedTitle")) + "</h3>" +
+      list.map(p => postCardHTML(p, true)).join("");
+  } catch (e) {
+    // Hide silently (e.g. migrate-v3.sql not run yet) — never break the homepage.
+    box.innerHTML = "";
+  }
+}
+/* Shop page: all posts by this shop, under the shop info. */
+async function drawShopPosts(shopId) {
+  const box = document.getElementById("shopPosts");
+  if (!box) return;
+  try {
+    const { data, error } = await sb.from("posts").select("*")
+      .eq("shop_id", shopId).order("created_at", { ascending: false });
+    if (error) throw error;
+    const list = (data || []).map(mapPost);
+    if (!list.length) { box.innerHTML = ""; return; }
+    box.innerHTML = '<h3 style="margin:12px 0 8px">📢 ' + esc(t("posts")) + "</h3>" +
+      list.map(p => postCardHTML(p, false)).join("");
+  } catch (e) { box.innerHTML = ""; }
+}
 /* Add/remove a dish from the unified menu grid (multi-shop cart). */
 function dishOrder(key, delta) {
   const d = (window._dishIndex || {})[key];
@@ -478,11 +539,13 @@ async function viewShop(id) {
     (s.wechatId ? '<div class="profile-row"><span class="k">' + esc(t("wechatId")) + '</span><span class="copyable">' + esc(s.wechatId) + "</span></div>" : "") +
     (s.deliveryFee > 0 ? '<div class="profile-row"><span class="k">🛵 ' + esc(t("deliveryFee")) + "</span><span>" + money(s.deliveryFee) + "</span></div>" : "") +
     "</div>" +
+    '<div id="shopPosts"></div>' +
     '<div class="tabs">' +
     '<div class="tab' + (shopTab === "menu" ? " active" : "") + '" onclick="setShopTab(\'' + id + "','menu')\">🍜 " + esc(t("menu")) + "</div>" +
     '<div class="tab' + (shopTab === "chat" ? " active" : "") + '" onclick="setShopTab(\'' + id + "','chat')\">💬 " + esc(t("chat")) + "</div>" +
     "</div><div id=\"shopTabBody\"></div>";
   if (shopTab === "menu") drawMenuTab(id, s); else drawChatTab(id, s);
+  drawShopPosts(id);
 }
 function setShopTab(id, tab) { shopTab = tab; viewShop(id); }
 
@@ -869,11 +932,13 @@ async function viewVendor() {
     '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("manageMenu")) + "</div>" +
     '<div class="tab' + (vendorTab === "chats" ? " active" : "") + '" onclick="setVendorTab(\'chats\')">💬 ' + esc(t("incomingChats")) + "</div>" +
     '<div class="tab' + (vendorTab === "orders" ? " active" : "") + '" onclick="setVendorTab(\'orders\')">📦 ' + esc(t("incomingOrders")) + "</div>" +
+    '<div class="tab' + (vendorTab === "posts" ? " active" : "") + '" onclick="setVendorTab(\'posts\')">📢 ' + esc(t("posts")) + "</div>" +
     "</div><div id=\"vtab\"></div>";
   if (vendorTab === "info") document.getElementById("vtab").innerHTML = shopForm(myShop);
   if (vendorTab === "menu") drawVendorMenu();
   if (vendorTab === "chats") drawVendorChats();
   if (vendorTab === "orders") drawVendorOrders();
+  if (vendorTab === "posts") drawVendorPosts();
 }
 function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
 function shopForm(s) {
@@ -996,6 +1061,82 @@ async function drawVendorOrders() {
   box.innerHTML = list.map(o =>
     orderCard(o, { name_zh: t("orderFrom") + ": " + (o.customerName || "?") + (o.customerEmail ? " (" + o.customerEmail + ")" : ""), name_my: "", name_en: "" }, true)
   ).join("");
+}
+
+/* ---------- vendor posts （商家动态） ---------- */
+async function drawVendorPosts() {
+  const box = document.getElementById("vtab");
+  box.innerHTML = '<div class="center muted">…</div>';
+  let listHtml = "";
+  try {
+    const { data, error } = await sb.from("posts").select("*")
+      .eq("shop_id", myShop.id).order("created_at", { ascending: false });
+    if (error) throw error;
+    const list = (data || []).map(mapPost);
+    listHtml = list.length ? list.map(p =>
+      '<div class="card"><div style="display:flex;gap:10px;align-items:center">' +
+      (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy" style="width:64px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0">' : "") +
+      '<div style="flex:1;min-width:0"><div>' + esc(p.body) + '</div>' +
+      '<div class="dish-price">' + money(p.price) + '</div>' +
+      '<div class="muted">' + esc(fmtTime(p.createdAt)) + "</div></div>" +
+      '<button class="btn small gray" onclick="delPost(\'' + p.id + "')\">" + esc(t("del")) + "</button></div></div>"
+    ).join("") : '<div class="card center muted">' + esc(t("noPosts")) + "</div>";
+  } catch (e) { listHtml = '<div class="card">⚠️ ' + esc(e.message) + "</div>"; }
+  box.innerHTML =
+    '<div class="card"><h3>📢 ' + esc(t("createPost")) + "</h3>" +
+    '<div class="field"><label>' + esc(t("postPhoto")) + '</label><input id="p-photo" type="file" accept="image/*"></div>' +
+    '<div class="field"><textarea id="p-body" rows="3" placeholder="' + esc(t("postPlaceholder")) + '"></textarea></div>' +
+    '<div class="field"><label>' + esc(t("priceYuan")) + '</label><input id="p-price" type="number" min="0" step="1"></div>' +
+    '<button class="btn" style="width:100%" onclick="publishPost()">' + esc(t("publish")) + "</button>" +
+    '<div id="p-err" class="muted" style="margin-top:6px"></div></div>' +
+    "<h3>📋 " + esc(t("myPosts")) + "</h3>" + listHtml;
+}
+async function publishPost() {
+  const errBox = document.getElementById("p-err");
+  const showErr = (m) => { if (errBox) errBox.textContent = "⚠️ " + m; };
+  const body = (document.getElementById("p-body").value || "").trim();
+  const priceRaw = (document.getElementById("p-price").value || "").trim();
+  if (!body || priceRaw === "" || !(Number(priceRaw) >= 0)) { showErr(t("fillPostText")); return; }
+  const fileInput = document.getElementById("p-photo");
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  let photoUrl = null;
+  try {
+    if (file) {
+      if (!file.type.startsWith("image/")) { showErr(t("photoOnlyImages")); return; }
+      if (file.size > 5 * 1024 * 1024) { showErr(t("photoTooBig")); return; }
+      showErr(t("uploadingPhoto"));
+      const ext = ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")) || "jpg";
+      const path = myShop.id + "/" + Date.now() + "." + ext;
+      const { error: upErr } = await sb.storage.from("post-photos").upload(path, file);
+      if (upErr) throw upErr;
+      photoUrl = sb.storage.from("post-photos").getPublicUrl(path).data.publicUrl;
+    }
+    const { error } = await sb.from("posts").insert({
+      shop_id: myShop.id, vendor_id: currentUser.id,
+      body: body, price_yuan: Number(priceRaw), photo_url: photoUrl
+    });
+    if (error) throw error;
+    drawVendorPosts();
+  } catch (e) { showErr(e.message || e); }
+}
+async function delPost(postId) {
+  if (!confirm(t("confirmDelete"))) return;
+  try {
+    // best-effort: also remove the uploaded photo from storage
+    const { data: prow } = await sb.from("posts").select("photo_url").eq("id", postId).single();
+    const url = prow && prow.photo_url;
+    const { error } = await sb.from("posts").delete().eq("id", postId);
+    if (error) throw error;
+    if (url) {
+      const marker = "/post-photos/";
+      const i = url.indexOf(marker);
+      if (i >= 0) {
+        const path = url.slice(i + marker.length).split("?")[0];
+        try { await sb.storage.from("post-photos").remove([path]); } catch (e2) {}
+      }
+    }
+    drawVendorPosts();
+  } catch (e) { alert("⚠️ " + e.message); }
 }
 
 /* ---------- bottom nav (role-aware) ---------- */
