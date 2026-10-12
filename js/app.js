@@ -91,20 +91,32 @@ function cartTotal() {
 /* ---------- boot ---------- */
 window.addEventListener("DOMContentLoaded", boot);
 function boot() {
-  document.getElementById("logoBtn").onclick = () => { location.hash = "#/"; };
-  document.getElementById("menuBtn").onclick = () => openDrawer();
-  document.getElementById("drawerClose").onclick = () => closeDrawer();
-  document.getElementById("drawerOverlay").onclick = () => closeDrawer();
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
-  if (!SUPABASE_CONFIG_OK) {
+  try {
+    document.getElementById("logoBtn").onclick = () => { location.hash = "#/"; };
+    document.getElementById("menuBtn").onclick = () => openDrawer();
+    document.getElementById("drawerClose").onclick = () => closeDrawer();
+    document.getElementById("drawerOverlay").onclick = () => closeDrawer();
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+    if (!SUPABASE_CONFIG_OK) {
+      document.getElementById("app").innerHTML =
+        '<div class="notice">⚠️ ' + esc(t("setupNeeded")) + "<br><br>" +
+        "README-my.md</div>";
+      return;
+    }
+    sb.auth.onAuthStateChange(async (_event, session) => { await handleSession(session); });
+    sb.auth.getSession().then(async ({ data }) => { await handleSession(data.session); });
+    window.addEventListener("hashchange", renderAll);
+    // Safety net: if auth bootstrap stalls, show a message instead of hanging on "…".
+    setTimeout(() => {
+      const app = document.getElementById("app");
+      if (app && app.innerHTML.trim() === "…") {
+        app.innerHTML = '<div class="notice">⚠️ ' + esc(t("bootStuck")) + "</div>";
+      }
+    }, 12000);
+  } catch (e) {
     document.getElementById("app").innerHTML =
-      '<div class="notice">⚠️ ' + esc(t("setupNeeded")) + "<br><br>" +
-      "README-my.md</div>";
-    return;
+      '<div class="notice">⚠️ ' + esc(String((e && e.message) || e)) + "</div>";
   }
-  sb.auth.onAuthStateChanged(async (_event, session) => { await handleSession(session); });
-  sb.auth.getSession().then(async ({ data }) => { await handleSession(data.session); });
-  window.addEventListener("hashchange", renderAll);
 }
 async function handleSession(session) {
   currentUser = (session && session.user) ? session.user : null;

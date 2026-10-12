@@ -107,6 +107,7 @@ const STR = {
   sampleBadge:        { zh: "示例", my: "နမူနာ", en: "Sample" },
   deleteSamples:      { zh: "删除所有示例店铺", my: "နမူနာဆိုင်အားလုံး ဖျက်မည်", en: "Delete sample shops" },
   setupNeeded:        { zh: "请先在 js/supabase-client.js 中填写你的 Supabase 配置", my: "js/supabase-client.js မှာ Supabase config အရင်ဖြည့်ပါ", en: "Please fill in your Supabase config in js/supabase-client.js first" },
+  bootStuck:          { zh: "连接服务器超时，请检查网络后刷新重试", my: "ဆာဗာနဲ့ ချိတ်ဆက်မှု အချိန်ကုန်သွားပြီ — အင်တာနက်စစ်ပြီး refresh လုပ်ကြည့်ပါ", en: "Connection timed out — please check your network and refresh" },
   orderFrom:          { zh: "下单人", my: "မှာယူသူ", en: "Ordered by" },
   backToShops:        { zh: "← 返回", my: "← ပြန်သွားမည်", en: "← Back" },
   welcomeVendor:      { zh: "欢迎入驻！请先创建你的店铺。", my: "ကြိုဆိုပါတယ်။ အရင်ဆုံး သင့်ဆိုင် ဖွင့်ပါ။", en: "Welcome! Please create your shop first." },
