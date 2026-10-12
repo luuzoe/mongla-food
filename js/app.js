@@ -12,6 +12,7 @@ let homeFilter = { q: "", cat: "all" };
 let vendorTab = "info";
 let showPostForm = false;
 let showShopForm = false;
+let showMenuForm = false;
 let adminTab = "shops";
 
 /* ---------- row mappers (Supabase snake_case -> app camelCase) ---------- */
@@ -1181,11 +1182,14 @@ async function drawVendorMenu() {
   if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
   const items = (data || []).map(mapItem);
   box.innerHTML =
-    '<div class="card"><h3>➕ ' + esc(t("addItem")) + "</h3>" +
-    '<div class="field"><input id="m-zh" placeholder="' + esc(t("itemName")) + '"></div>' +
-    '<div class="field"><input id="m-price" type="number" min="0" placeholder="' + esc(t("priceYuan")) + '"></div>' +
-    '<div class="field"><input id="m-photo" placeholder="' + esc(t("photoUrl")) + '"></div>' +
-    '<button class="btn" style="width:100%" onclick="addMenuItem()">' + esc(t("add")) + "</button></div>" +
+    '<button class="btn" style="width:100%;margin-bottom:12px" onclick="toggleMenuForm()">➕ ' + esc(t("addItem")) + "</button>" +
+    (showMenuForm
+      ? '<div class="card"><h3>➕ ' + esc(t("addItem")) + "</h3>" +
+        '<div class="field"><input id="m-zh" placeholder="' + esc(t("itemName")) + '"></div>' +
+        '<div class="field"><input id="m-price" type="number" min="0" placeholder="' + esc(t("priceYuan")) + '"></div>' +
+        '<div class="field"><input id="m-photo" placeholder="' + esc(t("photoUrl")) + '"></div>' +
+        '<button class="btn" style="width:100%" onclick="addMenuItem()">' + esc(t("add")) + "</button></div>"
+      : "") +
     '<div class="card">' + (items.length ? items.map(it =>
       '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + "</div>" +
       '<div class="pr">' + money(it.price) + "</div></div>" +
@@ -1208,9 +1212,11 @@ async function addMenuItem() {
       photo_url: photoUrl || null, available: true, sample: false
     });
     if (error) throw error;
+    showMenuForm = false;
     drawVendorMenu();
   } catch (e) { toast("⚠️ " + e.message); }
 }
+function toggleMenuForm() { showMenuForm = !showMenuForm; drawVendorMenu(); }
 async function delMenuItem(itemId) {
   if (!(await confirmDlg(t("confirmDelete")))) return;
   try {
