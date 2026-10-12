@@ -1099,7 +1099,6 @@ async function viewVendor() {
     (myShop.deliveryFee > 0 ? '<div class="muted" style="font-size:13px">🛵 ' + money(myShop.deliveryFee) + "</div>" : "") +
     "</div></div>" +
     '<div class="tabs">' +
-    '<div class="tab' + (vendorTab === "info" ? " active" : "") + '" onclick="setVendorTab(\'info\')">🏪 ' + esc(t("tabShop")) + "</div>" +
     '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("menu")) + "</div>" +
     '<div class="tab' + (vendorTab === "chats" ? " active" : "") + '" onclick="setVendorTab(\'chats\')">💬 ' + esc(t("tabChats")) + "</div>" +
     '<div class="tab' + (vendorTab === "orders" ? " active" : "") + '" onclick="setVendorTab(\'orders\')">📦 ' + esc(t("tabOrders")) + "</div>" +
