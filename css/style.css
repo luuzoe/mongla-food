@@ -186,6 +186,9 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
   cursor: pointer;
 }
 .social-btn:disabled { opacity: .55; cursor: default; }
+.social-row { display: flex; gap: 8px; }
+.social-row .social-btn { margin-bottom: 0; padding: 9px 6px; font-size: 13px; }
+.social-row .social-btn .soon { font-size: 10px; padding: 1px 6px; }
 .social-btn .soon {
   font-size: 11px; background: #eee; color: #888; border-radius: 10px; padding: 2px 8px;
 }

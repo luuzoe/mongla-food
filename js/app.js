@@ -304,6 +304,7 @@ function viewProfile() {
     '<div id="auth-err" class="muted"></div></div>' +
     '<div class="card"><div class="divider">' + esc(t("signInWith")) + "</div>" +
     '<button class="social-btn" onclick="doGoogleLogin()">🔵 ' + esc(t("googleSignIn")) + "</button>" +
+    '<div class="social-row">' +
     // WeChat / Facebook are shown honestly as "coming soon":
     // - WeChat login is NOT natively supported by Supabase Auth. To enable later:
     //   register at open.weixin.qq.com, complete the WeChat OAuth flow on your
@@ -314,7 +315,7 @@ function viewProfile() {
     //   site URL in "Redirect URLs"), then call
     //   sb.auth.signInWithOAuth({ provider: "facebook" }) like doGoogleLogin().
     '<button class="social-btn" disabled>💬 ' + esc(t("wechatSignIn")) + ' <span class="soon">' + esc(t("comingSoon")) + "</span></button>" +
-    '<button class="social-btn" disabled>📘 ' + esc(t("facebookSignIn")) + ' <span class="soon">' + esc(t("comingSoon")) + "</span></button></div>";
+    '<button class="social-btn" disabled>📘 ' + esc(t("facebookSignIn")) + ' <span class="soon">' + esc(t("comingSoon")) + "</span></button></div></div>";
 }
 function setRegRole(r) { regRole = r; viewProfile(); }
 function setAuthMode(m) { authMode = m; viewProfile(); }
