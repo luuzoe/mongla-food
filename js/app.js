@@ -431,6 +431,21 @@ function regDish(shopId, shop, item) {
     shop_en: shop.name_en || shop.name_zh || ""
   };
 }
+/* Register a vendor post as an orderable pseudo-dish (key: shopId__post_<id>),
+ * so post cards can use the same cart flow as dishes. */
+function regPost(shopId, shop, post) {
+  window._dishIndex = window._dishIndex || {};
+  const key = shopId + "__post_" + post.id;
+  window._dishIndex[key] = {
+    key: key, shopId: shopId, itemId: "post_" + post.id,
+    name_zh: post.body, name_my: post.body, name_en: post.body,
+    price: Number(post.price) || 0,
+    photoUrl: post.photoUrl || "", category: "all", emoji: "📢",
+    shop_zh: (shop && shop.name_zh) || "",
+    shop_my: (shop && (shop.name_my || shop.name_zh)) || "",
+    shop_en: (shop && (shop.name_en || shop.name_zh)) || ""
+  };
+}
 /* PLACEHOLDER: dish photos are decorative placeholders for now.
  * Real shops will upload real food photos later — set the `photo_url` field on
  * the menu item row and this helper will render <img src="photo_url">. */
@@ -469,18 +484,26 @@ function drawDishGrid() {
   }).join("");
 }
 /* ---------- vendor posts feed (homepage + shop page) ----------
- * Post cards are display-only (no order button): the price is informational;
- * tapping a card opens the shop page where ordering happens. */
+ * Post cards are compact like dish cards and orderable: tapping the order
+ * button adds the post to the cart as a pseudo-dish. */
 function postCardHTML(p, showShop) {
+  const key = p.shopId + "__post_" + p.id;
+  const inCart = cart.items[key] ? cart.items[key].qty : 0;
   const click = showShop ? ' onclick="location.hash=\'#/shop/' + p.shopId + "'\"" : "";
+  const shopLabel = (showShop && p.shopName)
+    ? '<div class="post-shop" onclick="event.stopPropagation();location.hash=\'#/shop/' + p.shopId + "'\">🏪 " + esc(p.shopName) + "</div>" : "";
   return '<div class="post-card"' + click + ">" +
-    (p.photoUrl ? '<div class="post-photo"><img src="' + esc(p.photoUrl) + '" alt="" loading="lazy"></div>' : "") +
+    '<div class="post-photo">' + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy">' : "📢") + "</div>" +
     '<div class="post-body">' +
     '<div class="post-text">' + esc(p.body) + "</div>" +
+    shopLabel +
     '<div class="post-foot"><span class="dish-price">' + money(p.price) + "</span>" +
-    (showShop && p.shopName ? '<span class="post-shop">🏪 ' + esc(p.shopName) + "</span>" : "") +
+    (inCart > 0
+      ? '<div class="qty-ctrl"><button onclick="event.stopPropagation();postOrder(\'' + key + "',-1)\">−</button><b>" + inCart + "</b>" +
+        '<button onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">＋</button></div>"
+      : '<button class="btn small" onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">" + esc(t("order")) + "</button>") +
     "</div>" +
-    '<div class="muted">' + esc(fmtTime(p.createdAt)) + "</div>" +
+    '<div class="post-time">' + esc(fmtTime(p.createdAt)) + "</div>" +
     "</div></div>";
 }
 /* Homepage feed: newest posts across ALL shops (after the product grid). */
@@ -494,16 +517,23 @@ async function drawFeed() {
     if (error) throw error;
     const list = (data || []).map(r => {
       const p = mapPost(r);
-      if (r.shops) p.shopName = shopName(r.shops);
+      if (r.shops) { p.shopName = shopName(r.shops); regPost(p.shopId, r.shops, p); }
       return p;
     });
-    if (!list.length) { box.innerHTML = ""; return; }
-    box.innerHTML = '<h3 style="margin:16px 0 8px">🔥 ' + esc(t("feedTitle")) + "</h3>" +
-      list.map(p => postCardHTML(p, true)).join("");
+    window._feedPosts = list;
+    renderFeedPosts();
   } catch (e) {
     // Hide silently (e.g. migrate-v3.sql not run yet) — never break the homepage.
     box.innerHTML = "";
   }
+}
+function renderFeedPosts() {
+  const box = document.getElementById("feedSection");
+  if (!box) return;
+  const list = window._feedPosts || [];
+  if (!list.length) { box.innerHTML = ""; return; }
+  box.innerHTML = '<h3 style="margin:16px 0 8px">🔥 ' + esc(t("feedTitle")) + "</h3>" +
+    '<div class="post-grid">' + list.map(p => postCardHTML(p, true)).join("") + "</div>";
 }
 /* Shop page: all posts by this shop, under the shop info. */
 async function drawShopPosts(shopId) {
@@ -514,10 +544,19 @@ async function drawShopPosts(shopId) {
       .eq("shop_id", shopId).order("created_at", { ascending: false });
     if (error) throw error;
     const list = (data || []).map(mapPost);
-    if (!list.length) { box.innerHTML = ""; return; }
-    box.innerHTML = '<h3 style="margin:12px 0 8px">📢 ' + esc(t("posts")) + "</h3>" +
-      list.map(p => postCardHTML(p, false)).join("");
+    const shop = shopCache[shopId] || { name_zh: "", name_my: "", name_en: "" };
+    list.forEach(p => regPost(shopId, shop, p));
+    window._shopPostsList = list;
+    renderShopPosts();
   } catch (e) { box.innerHTML = ""; }
+}
+function renderShopPosts() {
+  const box = document.getElementById("shopPosts");
+  if (!box) return;
+  const list = window._shopPostsList || [];
+  if (!list.length) { box.innerHTML = ""; return; }
+  box.innerHTML = '<h3 style="margin:12px 0 8px">📢 ' + esc(t("posts")) + "</h3>" +
+    '<div class="post-grid">' + list.map(p => postCardHTML(p, false)).join("") + "</div>";
 }
 /* Add/remove a dish from the unified menu grid (multi-shop cart). */
 function dishOrder(key, delta) {
@@ -533,6 +572,24 @@ function dishOrder(key, delta) {
     photoUrl: d.photoUrl, emoji: d.emoji, shop_zh: d.shop_zh, shop_my: d.shop_my, shop_en: d.shop_en
   };
   drawDishGrid();
+  renderCartBar();
+  window.scrollTo(0, y);
+}
+/* Add/remove a vendor-post item to the cart (re-renders the post feeds). */
+function postOrder(key, delta) {
+  const d = (window._dishIndex || {})[key];
+  if (!d) return;
+  const y = window.scrollY;
+  const cur = cart.items[key];
+  const qty = (cur ? cur.qty : 0) + delta;
+  if (qty <= 0) delete cart.items[key];
+  else cart.items[key] = {
+    shopId: d.shopId, itemId: d.itemId, qty: qty,
+    name_zh: d.name_zh, name_my: d.name_my, name_en: d.name_en, price: d.price,
+    photoUrl: d.photoUrl, emoji: d.emoji, shop_zh: d.shop_zh, shop_my: d.shop_my, shop_en: d.shop_en
+  };
+  renderFeedPosts();
+  renderShopPosts();
   renderCartBar();
   window.scrollTo(0, y);
 }
