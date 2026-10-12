@@ -135,6 +135,7 @@ const STR = {
   tabShop:           { zh: "店铺", my: "ဆိုင်", en: "Shop" },
   tabChats:          { zh: "聊天", my: "စကားပြောခန်း", en: "Chats" },
   tabOrders:         { zh: "订单", my: "အမှာစာ", en: "Orders" },
+  editShopInfo:       { zh: "编辑店铺信息", my: "ဆိုင်အချက်အလက် ပြင်မည်", en: "Edit shop info" },
   createPost:        { zh: "发布动态", my: "ပို့စ်တင်မည်", en: "New post" },
   myPosts:           { zh: "我的动态", my: "ကျွန်ုပ်၏ ပို့စ်များ", en: "My posts" },
   postPhoto:         { zh: "上传照片", my: "ဓာတ်ပုံတင်ရန်", en: "Upload photo" },

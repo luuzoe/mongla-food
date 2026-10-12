@@ -11,6 +11,7 @@ let shopTab = "menu";        // shop detail tab
 let homeFilter = { q: "", cat: "all" };
 let vendorTab = "info";
 let showPostForm = false;
+let showShopForm = false;
 let adminTab = "shops";
 
 /* ---------- row mappers (Supabase snake_case -> app camelCase) ---------- */
@@ -1095,13 +1096,20 @@ async function viewVendor() {
     '<div class="tab' + (vendorTab === "orders" ? " active" : "") + '" onclick="setVendorTab(\'orders\')">📦 ' + esc(t("tabOrders")) + "</div>" +
     '<div class="tab' + (vendorTab === "posts" ? " active" : "") + '" onclick="setVendorTab(\'posts\')">📢 ' + esc(t("posts")) + "</div>" +
     "</div><div id=\"vtab\"></div>";
-  if (vendorTab === "info") document.getElementById("vtab").innerHTML = shopForm(myShop);
+  if (vendorTab === "info") drawVendorInfo();
   if (vendorTab === "menu") drawVendorMenu();
   if (vendorTab === "chats") drawVendorChats();
   if (vendorTab === "orders") drawVendorOrders();
   if (vendorTab === "posts") drawVendorPosts();
 }
 function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
+function drawVendorInfo() {
+  const box = document.getElementById("vtab");
+  box.innerHTML =
+    '<button class="btn" style="width:100%;margin-bottom:12px" onclick="toggleShopForm()">✏️ ' + esc(t("editShopInfo")) + "</button>" +
+    (showShopForm ? shopForm(myShop) : "");
+}
+function toggleShopForm() { showShopForm = !showShopForm; drawVendorInfo(); }
 function shopForm(s) {
   const v = (k) => esc(s[k] || "");
   return '<div class="card"><h3>' + esc(myShop ? t("saveShop") : t("createShop")) + "</h3>" +
@@ -1145,7 +1153,7 @@ async function saveShop() {
       const { error } = await sb.from("shops").insert(data);
       if (error) throw error;
     }
-    vendorTab = "info"; viewVendor();
+    vendorTab = "info"; showShopForm = false; viewVendor();
   } catch (e) { toast("⚠️ " + e.message); }
 }
 async function uploadShopPhoto() {
