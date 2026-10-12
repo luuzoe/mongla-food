@@ -26,6 +26,7 @@ function mapShop(r) {
     ownerName: r.owner_name, address_zh: r.address_zh, address_my: r.address_my,
     phone: r.phone, category: r.category, emoji: r.emoji, sample: r.sample,
     deliveryFee: Number(r.delivery_fee_yuan) || 0, wechatId: r.wechat_id || "",
+    photo_url: r.photo_url || null,
     ownerUid: r.owner_id, createdAt: r.created_at
   };
 }
@@ -678,8 +679,12 @@ async function viewShop(id) {
   const addr = LANG === "zh" ? (s.address_zh || "") : (s.address_my || s.address_zh || "");
   app.innerHTML =
     '<p><a href="#/">' + esc(t("backToShops")) + "</a></p>" +
-    '<div class="card"><h2>' + esc(s.emoji || "🍜") + " " + esc(shopName(s)) +
-    (s.sample ? '<span class="badge">' + esc(t("sampleBadge")) + "</span>" : "") + "</h2>" +
+    '<div class="card"><h2 style="display:flex;align-items:center;gap:10px">' +
+    (s.photo_url
+      ? '<img src="' + esc(s.photo_url) + '" alt="" style="width:46px;height:46px;object-fit:cover;border-radius:50%;flex-shrink:0">'
+      : esc(s.emoji || "🍜")) +
+    "<span>" + esc(shopName(s)) +
+    (s.sample ? '<span class="badge">' + esc(t("sampleBadge")) + "</span>" : "") + "</span></h2>" +
     '<div class="profile-row"><span class="k">' + esc(t("ownerName")) + "</span><span>" + esc(s.ownerName || "-") + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("address")) + "</span><span>" + esc(addr) + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("phone")) + "</span><span><a href=\"tel:" + esc(s.phone || "") + "\">" + esc(s.phone || "-") + "</a></span></div>" +
@@ -1091,6 +1096,9 @@ function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
 function shopForm(s) {
   const v = (k) => esc(s[k] || "");
   return '<div class="card"><h3>' + esc(myShop ? t("saveShop") : t("createShop")) + "</h3>" +
+    '<div class="field"><label>' + esc(t("shopPhoto")) + "</label>" +
+    (s.photo_url ? '<img src="' + esc(s.photo_url) + '" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:12px;display:block;margin-bottom:6px">' : "") +
+    '<input id="s-photo" type="file" accept="image/*"></div>' +
     '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="s-zh" value="' + v("name_zh") + '"></div>' +
     '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="s-owner" value="' + v("ownerName") + '"></div>' +
     '<div class="field"><label>' + esc(t("address")) + '</label><input id="s-azh" value="' + v("address_zh") + '"></div>' +
@@ -1122,6 +1130,21 @@ async function saveShop() {
   };
   if (!data.name_zh) { toast("⚠️"); return; }
   try {
+    // Upload a new shop photo if one was chosen.
+    const fileInput = document.getElementById("s-photo");
+    const file = fileInput && fileInput.files && fileInput.files[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) throw new Error(t("photoOnlyImages"));
+      if (file.size > 5 * 1024 * 1024) throw new Error(t("photoTooBig"));
+      const ext = ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")) || "jpg";
+      const shopId = (myShop && myShop.id) || "new";
+      const path = shopId + "/" + Date.now() + "." + ext;
+      const { error: upErr } = await sb.storage.from("shop-photos").upload(path, file);
+      if (upErr) throw upErr;
+      data.photo_url = sb.storage.from("shop-photos").getPublicUrl(path).data.publicUrl;
+    } else if (myShop) {
+      data.photo_url = myShop.photo_url || null;
+    }
     if (myShop) {
       const { error } = await sb.from("shops").update(data).eq("id", myShop.id);
       if (error) throw error;

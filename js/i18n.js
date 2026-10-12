@@ -138,6 +138,7 @@ const STR = {
   createPost:        { zh: "发布动态", my: "ပို့စ်တင်မည်", en: "New post" },
   myPosts:           { zh: "我的动态", my: "ကျွန်ုပ်၏ ပို့စ်များ", en: "My posts" },
   postPhoto:         { zh: "上传照片", my: "ဓာတ်ပုံတင်ရန်", en: "Upload photo" },
+  shopPhoto:         { zh: "店铺头像", my: "ဆိုင်ပုံ", en: "Shop photo" },
   postPlaceholder:   { zh: "分享今天店里有什么好吃的…", my: "ဒီနေ့ဆိုင်မှာ ဘာတွေရနိုင်လဲ မျှဝေပါ…", en: "Share what's available at your shop today…" },
   publish:           { zh: "发布", my: "တင်မည်", en: "Publish" },
   fillPostText:      { zh: "请填写内容和价格", my: "အကြောင်းအရာနဲ့ ဈေးနှုန်း ဖြည့်ပါ", en: "Please fill in the text and price" },
