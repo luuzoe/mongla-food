@@ -10,6 +10,7 @@ let cart = { items: {} };  // multi-shop cart: items keyed by shopId + "__" + it
 let shopTab = "menu";        // shop detail tab
 let homeFilter = { q: "", cat: "all" };
 let vendorTab = "info";
+let showPostForm = false;
 let adminTab = "shops";
 
 /* ---------- row mappers (Supabase snake_case -> app camelCase) ---------- */
@@ -1224,14 +1225,18 @@ async function drawVendorPosts() {
     ).join("") : '<div class="card center muted">' + esc(t("noPosts")) + "</div>";
   } catch (e) { listHtml = '<div class="card">⚠️ ' + esc(e.message) + "</div>"; }
   box.innerHTML =
-    '<div class="card"><h3>📢 ' + esc(t("createPost")) + "</h3>" +
-    '<div class="field"><label>' + esc(t("postPhoto")) + '</label><input id="p-photo" type="file" accept="image/*"></div>' +
-    '<div class="field"><textarea id="p-body" rows="3" placeholder="' + esc(t("postPlaceholder")) + '"></textarea></div>' +
-    '<div class="field"><label>' + esc(t("priceYuan")) + '</label><input id="p-price" type="number" min="0" step="1"></div>' +
-    '<button class="btn" style="width:100%" onclick="publishPost()">' + esc(t("publish")) + "</button>" +
-    '<div id="p-err" class="muted" style="margin-top:6px"></div></div>' +
+    '<button class="btn" style="width:100%;margin-bottom:12px" onclick="togglePostForm()">📢 ' + esc(t("createPost")) + "</button>" +
+    (showPostForm
+      ? '<div class="card"><h3>📢 ' + esc(t("createPost")) + "</h3>" +
+        '<div class="field"><label>' + esc(t("postPhoto")) + '</label><input id="p-photo" type="file" accept="image/*"></div>' +
+        '<div class="field"><textarea id="p-body" rows="3" placeholder="' + esc(t("postPlaceholder")) + '"></textarea></div>' +
+        '<div class="field"><label>' + esc(t("priceYuan")) + '</label><input id="p-price" type="number" min="0" step="1"></div>' +
+        '<button class="btn" style="width:100%" onclick="publishPost()">' + esc(t("publish")) + "</button>" +
+        '<div id="p-err" class="muted" style="margin-top:6px"></div></div>'
+      : "") +
     "<h3>📋 " + esc(t("myPosts")) + "</h3>" + listHtml;
 }
+function togglePostForm() { showPostForm = !showPostForm; drawVendorPosts(); }
 async function publishPost() {
   const errBox = document.getElementById("p-err");
   const showErr = (m) => { if (errBox) errBox.textContent = "⚠️ " + m; };
@@ -1257,6 +1262,7 @@ async function publishPost() {
       body: body, price_yuan: Number(priceRaw), photo_url: photoUrl
     });
     if (error) throw error;
+    showPostForm = false;
     drawVendorPosts();
   } catch (e) { showErr(e.message || e); }
 }
