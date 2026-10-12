@@ -1,0 +1,141 @@
+/* Trilingual strings: Simplified Chinese (default) / Burmese / English
+ * 三语：简体中文（默认）/ 缅甸语 / 英语
+ * window.t(key) returns the string for the current language.
+ */
+const STR = {
+  appName:            { zh: "勐拉外卖", my: "မိုင်းလား အစားအသောက် ပို့ဆောင်ရေး", en: "Mong La Food Delivery" },
+  tagline:            { zh: "勐拉美食，一键送达", my: "မိုင်းလားအစားအစာများ အိမ်တိုင်ရာရောက်ပို့ဆောင်ပေးမည်", en: "Mong La food, delivered to your door" },
+  home:               { zh: "首页", my: "ပင်မ", en: "Home" },
+  orders:             { zh: "我的订单", my: "ကျွန်ုပ်ရဲ့ အမှာစာများ", en: "My Orders" },
+  vendorCenter:       { zh: "商家中心", my: "ဆိုင်ရှင်စင်တာ", en: "Vendor Center" },
+  adminPanel:         { zh: "管理后台", my: "အက်ဒမင်စာမျက်နှာ", en: "Admin Panel" },
+  login:              { zh: "登录", my: "ဝင်ရန်", en: "Log in" },
+  register:           { zh: "注册", my: "အကောင့်ဖွင့်ရန်", en: "Register" },
+  logout:             { zh: "退出", my: "ထွက်ရန်", en: "Log out" },
+  email:              { zh: "邮箱", my: "အီးမေးလ်", en: "Email" },
+  password:           { zh: "密码", my: "စကားဝှက်", en: "Password" },
+  yourName:           { zh: "你的名字", my: "သင့်နာမည်", en: "Your name" },
+  firstName:          { zh: "名", my: "နာမည် (ရှေ့)", en: "First name" },
+  lastName:           { zh: "姓", my: "နာမည် (နောက်)", en: "Last name" },
+  phoneOrEmail:       { zh: "手机号或邮箱", my: "ဖုန်းနံပါတ် သို့မဟုတ် Gmail", en: "Phone number or Gmail" },
+  enterPhoneOrEmail:  { zh: "请输入手机号或邮箱", my: "ဖုန်းနံပါတ် သို့မဟုတ် Gmail ထည့်ပါ", en: "Enter a phone number or Gmail" },
+  createAccount:      { zh: "创建账号", my: "အကောင့်ဖွင့်မည်", en: "Create Account" },
+  signInWith:         { zh: "使用以下方式登录", my: "အောက်ပါတို့ဖြင့် ဝင်ရန်", en: "Sign in with" },
+  googleSignIn:       { zh: "用 Google 登录", my: "Google နဲ့ ဝင်မည်", en: "Sign in with Google" },
+  wechatSignIn:       { zh: "用微信登录", my: "WeChat နဲ့ ဝင်မည်", en: "Sign in with WeChat" },
+  facebookSignIn:     { zh: "用 Facebook 登录", my: "Facebook နဲ့ ဝင်မည်", en: "Sign in with Facebook" },
+  comingSoon:         { zh: "即将上线", my: "မကြာမီ ရမည်", en: "Coming soon" },
+  myAccount:          { zh: "我的账号", my: "ကျွန်ုပ်ရဲ့အကောင့်", en: "My Account" },
+  role:               { zh: "身份", my: "အခန်းကဏ္ဍ", en: "Role" },
+  profile:            { zh: "个人中心", my: "ပရိုဖိုင်", en: "Profile" },
+  settings:           { zh: "设置", my: "ဆက်တင်များ", en: "Settings" },
+  help:               { zh: "帮助", my: "အကူအညီ", en: "Help" },
+  contactUs:          { zh: "联系我们", my: "ဆက်သွယ်ရန်", en: "Contact Us" },
+  contactPhone:       { zh: "联系电话", my: "ဆက်သွယ်ရန်ဖုန်း", en: "Contact phone" },
+  chooseLanguage:     { zh: "选择语言 / Choose language", my: "ဘာသာစကားရွေးရန်", en: "Choose language" },
+  helpTitle:          { zh: "帮助中心", my: "အကူအညီဌာန", en: "Help Center" },
+  helpQ1:             { zh: "如何下单？", my: "အမှာစာ ဘယ်လိုတင်ရမလဲ။", en: "How do I place an order?" },
+  helpA1:             { zh: "选择菜品 → 加入购物车 → 结算，订单会直接发送到商家聊天框。", my: "ပစ္စည်းရွေး → ခြင်းထဲထည့် → ငွေရှင်း → အမှာစာက ဆိုင်ရှင် chatbox ဆီ တိုက်ရိုက်ရောက်မယ်။", en: "Pick items → add to cart → check out. Your order goes straight into the shop's chatbox." },
+  helpQ2:             { zh: "如何付款？", my: "ငွေဘယ်လိုပေးရမလဲ။", en: "How do I pay?" },
+  helpA2:             { zh: "目前支持货到付款（人民币现金）。在线支付即将上线。", my: "အခု ပစ္စည်းရောက်ငွေချေ (ယွမ် cash) ပဲရပါတယ်။ Online ငွေပေးချေမှု မကြာမီရမယ်။", en: "Cash on delivery (yuan) for now. Online payment coming soon." },
+  helpQ3:             { zh: "我是商家，如何入驻？", my: "ဆိုင်ရှင်ဖြစ်ချင်ရင် ဘယ်လိုလုပ်ရမလဲ။", en: "I'm a shop owner — how do I join?" },
+  helpA3:             { zh: "注册时选择“我是商家”，然后在商家中心创建店铺和菜单；或直接联系我们。", my: "အကောင့်ဖွင့်တုန်း 'ကျွန်ုပ်သည် ဆိုင်ရှင်ပါ' ရွေးပါ၊ ပြီးရင် ဆိုင်ရှင်စင်တာမှာ ဆိုင်နဲ့ မီနူးထည့်ပါ။ ဒါမှမဟုတ် တိုက်ရိုက်ဆက်သွယ်ပါ။", en: "Choose 'I'm a vendor' when registering, then create your shop and menu in the vendor center — or contact us directly." },
+  iAmCustomer:        { zh: "我是顾客", my: "ကျွန်ုပ်သည် ဝယ်သူပါ", en: "I'm a customer" },
+  iAmVendor:          { zh: "我是商家", my: "ကျွန်ုပ်သည် ဆိုင်ရှင်ပါ", en: "I'm a vendor" },
+  doLogin:            { zh: "登录", my: "ဝင်မည်", en: "Log in" },
+  doRegister:         { zh: "注册账号", my: "အကောင့်ဖွင့်မည်", en: "Create account" },
+  needAccount:        { zh: "还没有账号？去注册", my: "အကောင့်မရှိသေးဘူးလား။ ဖွင့်လိုက်ပါ", en: "No account yet? Register" },
+  haveAccount:        { zh: "已有账号？去登录", my: "အကောင့်ရှိပြီးသားလား။ ဝင်လိုက်ပါ", en: "Have an account? Log in" },
+  loginFirst:         { zh: "请先登录", my: "အရင်ဆုံး ဝင်ရောက်ပါ", en: "Please log in first" },
+  searchDishes:       { zh: "搜索美食…", my: "အစားအစာ ရှာဖွေရန်…", en: "Search food…" },
+  unifiedMenu:        { zh: "全部美食", my: "အစားအစာအားလုံး", en: "All items" },
+  noDishes:           { zh: "暂无菜品", my: "ပစ္စည်းမရှိသေးပါ", en: "No items yet" },
+  order:              { zh: "订购", my: "မှာယူမည်", en: "Order" },
+  viewCart:           { zh: "去结算", my: "ငွေရှင်းရန်", en: "Check out" },
+  backToMenu:         { zh: "← 返回菜单", my: "← မီနူးသို့ ပြန်သွားမည်", en: "← Back to menu" },
+  allCategories:      { zh: "所属分类", my: "အမျိုးအစား", en: "Category" },
+  noShops:            { zh: "暂无店铺", my: "ဆိုင်မရှိသေးပါ", en: "No shops yet" },
+  shopProfile:        { zh: "店铺信息", my: "ဆိုင်အချက်အလက်", en: "Shop info" },
+  shopName:           { zh: "店铺名称", my: "ဆိုင်နာမည်", en: "Shop name" },
+  ownerName:          { zh: "店主姓名", my: "ဆိုင်ရှင်နာမည်", en: "Owner name" },
+  address:            { zh: "地址", my: "လိပ်စာ", en: "Address" },
+  phone:              { zh: "电话", my: "ဖုန်းနံပါတ်", en: "Phone" },
+  callNow:            { zh: "打电话", my: "ဖုန်းခေါ်ရန်", en: "Call now" },
+  menu:               { zh: "菜单", my: "မီနူး", en: "Menu" },
+  chat:               { zh: "聊天", my: "စကားပြောရန်", en: "Chat" },
+  typeMessage:        { zh: "输入消息…", my: "စာရိုက်ပါ…", en: "Type a message…" },
+  send:               { zh: "发送", my: "ပို့မည်", en: "Send" },
+  add:                { zh: "加", my: "ထည့်", en: "Add" },
+  cart:               { zh: "购物车", my: "ခြင်းတောင်း", en: "Cart" },
+  emptyCart:          { zh: "购物车是空的", my: "ခြင်းတောင်းဗလာဖြစ်နေသည်", en: "Your cart is empty" },
+  total:              { zh: "合计", my: "စုစုပေါင်း", en: "Total" },
+  buyNow:             { zh: "下单购买", my: "ဝယ်မည်", en: "Buy now" },
+  confirmOrder:       { zh: "确认下单", my: "အမှာစာအတည်ပြုမည်", en: "Confirm order" },
+  cancel:             { zh: "取消", my: "မလုပ်တော့ပါ", en: "Cancel" },
+  orderSent:          { zh: "订单已发送到商家聊天框！", my: "အမှာစာ ဆိုင်ရှင်ရဲ့ chatbox ဆီရောက်သွားပါပြီ!", en: "Order sent to the shop's chatbox!" },
+  orderItems:         { zh: "订单内容", my: "မှာယူမည့်စာရင်း", en: "Order items" },
+  status_pending:     { zh: "待接单", my: "လက်ခံရန်စောင့်နေသည်", en: "Pending" },
+  status_accepted:     { zh: "已接单", my: "လက်ခံပြီးပြီ", en: "Accepted" },
+  status_delivering:  { zh: "配送中", my: "ပို့နေသည်", en: "Delivering" },
+  status_done:        { zh: "已完成", my: "ပြီးဆုံးပြီ", en: "Done" },
+  status_cancelled:   { zh: "已取消", my: "ပယ်ဖျက်ပြီးပြီ", en: "Cancelled" },
+  acceptOrder:        { zh: "接单", my: "လက်ခံမည်", en: "Accept" },
+  startDelivery:      { zh: "开始配送", my: "ပို့ဆောင်မည်", en: "Start delivery" },
+  completeOrder:      { zh: "完成订单", my: "အမှာစာပြီးဆုံးပြီ", en: "Complete" },
+  cancelOrder:        { zh: "取消订单", my: "အမှာစာပယ်ဖျက်မည်", en: "Cancel order" },
+  noOrders:           { zh: "暂无订单", my: "အမှာစာမရှိသေးပါ", en: "No orders yet" },
+  myShop:             { zh: "我的店铺", my: "ကျွန်ုပ်ရဲ့ဆိုင်", en: "My shop" },
+  createShop:         { zh: "创建我的店铺", my: "ကျွန်ုပ်ရဲ့ဆိုင် ဖွင့်မည်", en: "Create my shop" },
+  saveShop:           { zh: "保存店铺信息", my: "ဆိုင်အချက်အလက် သိမ်းမည်", en: "Save shop info" },
+  manageMenu:         { zh: "菜单管理", my: "မီနူး စီမံခန့်ခွဲမှု", en: "Manage menu" },
+  addItem:            { zh: "添加菜品", my: "ပစ္စည်းအသစ်ထည့်မည်", en: "Add item" },
+  itemNameZh:         { zh: "中文名", my: "တရုတ်နာမည်", en: "Chinese name" },
+  itemNameMy:         { zh: "缅文名", my: "မြန်မာနာမည်", en: "Burmese name" },
+  itemNameEn:         { zh: "英文名", my: "အင်္ဂလိပ်နာမည်", en: "English name" },
+  photoUrl:           { zh: "照片链接（可选）", my: "ဓာတ်ပုံ link (မထည့်လည်းရ)", en: "Photo URL (optional)" },
+  priceYuan:          { zh: "价格（元 ¥）", my: "ဈေးနှုန်း (ယွမ် ¥)", en: "Price (¥ yuan)" },
+  save:               { zh: "保存", my: "သိမ်းမည်", en: "Save" },
+  del:                { zh: "删除", my: "ဖျက်မည်", en: "Delete" },
+  confirmDelete:      { zh: "确定删除吗？", my: "ဖျက်မှာသေချာပါသလား။", en: "Delete this?" },
+  incomingChats:      { zh: "顾客聊天", my: "ဝယ်သူများနဲ့ စကားပြောခန်း", en: "Customer chats" },
+  incomingOrders:     { zh: "收到的订单", my: "ရရှိထားသော အမှာစာများ", en: "Incoming orders" },
+  noChats:            { zh: "暂无聊天", my: "စကားပြောခန်းမရှိသေးပါ", en: "No chats yet" },
+  allShops:           { zh: "所有店铺", my: "ဆိုင်အားလုံး", en: "All shops" },
+  allUsers:           { zh: "所有用户", my: "အသုံးပြုသူအားလုံး", en: "All users" },
+  allOrders:          { zh: "所有订单", my: "အမှာစာအားလုံး", en: "All orders" },
+  loadSamples:        { zh: "导入示例店铺", my: "နမူနာဆိုင်များ ထည့်မည်", en: "Load sample shops" },
+  sampleBadge:        { zh: "示例", my: "နမူနာ", en: "Sample" },
+  deleteSamples:      { zh: "删除所有示例店铺", my: "နမူနာဆိုင်အားလုံး ဖျက်မည်", en: "Delete sample shops" },
+  setupNeeded:        { zh: "请先在 js/supabase-client.js 中填写你的 Supabase 配置", my: "js/supabase-client.js မှာ Supabase config အရင်ဖြည့်ပါ", en: "Please fill in your Supabase config in js/supabase-client.js first" },
+  orderFrom:          { zh: "下单人", my: "မှာယူသူ", en: "Ordered by" },
+  backToShops:        { zh: "← 返回", my: "← ပြန်သွားမည်", en: "← Back" },
+  welcomeVendor:      { zh: "欢迎入驻！请先创建你的店铺。", my: "ကြိုဆိုပါတယ်။ အရင်ဆုံး သင့်ဆိုင် ဖွင့်ပါ။", en: "Welcome! Please create your shop first." },
+  makeAdminTip:       { zh: "设为管理员：去 Supabase Dashboard → Table Editor → users 表 → 找到该用户 → role 改为 admin", my: "အက်ဒမင်လုပ်ရန်: Supabase Dashboard → Table Editor → users table → ထိုသူကိုရှာ → role ကို admin ဟုပြောင်းပါ", en: "To make an admin: Supabase Dashboard → Table Editor → users table → find the user → change role to admin" },
+  checkEmailConfirm:  { zh: "注册成功，但需要确认邮箱。请去 Supabase → Authentication → Providers → Email，关闭“Confirm email”后再试。", my: "အကောင့်ဖွင့်ပြီးပါပြီ၊ ဒါပေမယ့် email အတည်ပြုဖို့လိုနေပါတယ်။ Supabase → Authentication → Providers → Email မှာ 'Confirm email' ကို ပိတ်ပြီးမှ ပြန်လုပ်ကြည့်ပါ။", en: "Signed up, but email confirmation is required. In Supabase → Authentication → Providers → Email, turn OFF 'Confirm email' and try again." },
+  langName:           { zh: "中文", my: "မြန်မာ", en: "English" }
+};
+
+let LANG = localStorage.getItem("ml_lang") || "zh";
+if (!["zh", "my", "en"].includes(LANG)) LANG = "zh";
+function t(key) {
+  const e = STR[key];
+  if (!e) return key;
+  return e[LANG] || e.en || e.zh;
+}
+function setLang(l) {
+  if (!["zh", "my", "en"].includes(l)) return;
+  LANG = l;
+  localStorage.setItem("ml_lang", l);
+  document.documentElement.lang = (l === "zh" ? "zh-CN" : (l === "my" ? "my" : "en"));
+  if (typeof renderAll === "function") renderAll();
+}
+function shopName(s) {
+  if (LANG === "en") return s.name_en || s.name_zh;
+  if (LANG === "my") return s.name_my || s.name_zh;
+  return s.name_zh;
+}
+function itemName(it) {
+  if (LANG === "en") return it.name_en || it.name_zh;
+  if (LANG === "my") return it.name_my || it.name_zh;
+  return it.name_zh;
+}

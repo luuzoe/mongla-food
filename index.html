@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>勐拉外卖 · မိုင်းလား အစားအသောက်ပို့ဆောင်ရေး</title>
+<link rel="stylesheet" href="css/style.css">
+<!-- Supabase (pinned UMD build, no build step needed) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <button class="btn white small" id="menuBtn" aria-label="menu">☰</button>
+  <div class="logo" id="logoBtn">🍜 <span data-i18n="appName">勐拉外卖</span></div>
+  <div class="spacer"></div>
+</header>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<nav class="drawer" id="drawer" aria-label="side menu">
+  <div class="drawer-head">
+    <span>🍜 <span data-i18n="appName">勐拉外卖</span></span>
+    <button class="btn white small" id="drawerClose">✕</button>
+  </div>
+  <div id="drawerItems"></div>
+</nav>
+
+<main id="app"><div class="center muted" style="padding:40px 0">…</div></main>
+<div id="cartbar"></div>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/seed.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
