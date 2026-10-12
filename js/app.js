@@ -1079,6 +1079,15 @@ async function viewVendor() {
     return;
   }
   body.innerHTML =
+    '<div class="card" style="display:flex;align-items:center;gap:12px">' +
+    '<div style="position:relative;flex-shrink:0" onclick="document.getElementById(\'v-photo\').click()">' +
+    (myShop.photo_url
+      ? '<img src="' + esc(myShop.photo_url) + '" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;display:block">'
+      : '<div style="width:64px;height:64px;border-radius:50%;background:#fce4ec;display:flex;align-items:center;justify-content:center;font-size:30px">🏪</div>') +
+    '<div style="position:absolute;right:-2px;bottom:-2px;background:var(--pink);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid #fff">📷</div></div>' +
+    '<input id="v-photo" type="file" accept="image/*" style="display:none" onchange="uploadShopPhoto()">' +
+    '<div style="min-width:0"><div style="font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(shopName(myShop)) + '</div>' +
+    '<div class="muted" style="font-size:12px">' + esc(myShop.ownerName || "") + "</div></div></div>" +
     '<div class="tabs">' +
     '<div class="tab' + (vendorTab === "info" ? " active" : "") + '" onclick="setVendorTab(\'info\')">🏪 ' + esc(t("tabShop")) + "</div>" +
     '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("menu")) + "</div>" +
@@ -1096,9 +1105,6 @@ function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
 function shopForm(s) {
   const v = (k) => esc(s[k] || "");
   return '<div class="card"><h3>' + esc(myShop ? t("saveShop") : t("createShop")) + "</h3>" +
-    '<div class="field"><label>' + esc(t("shopPhoto")) + "</label>" +
-    (s.photo_url ? '<img src="' + esc(s.photo_url) + '" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:12px;display:block;margin-bottom:6px">' : "") +
-    '<input id="s-photo" type="file" accept="image/*"></div>' +
     '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="s-zh" value="' + v("name_zh") + '"></div>' +
     '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="s-owner" value="' + v("ownerName") + '"></div>' +
     '<div class="field"><label>' + esc(t("address")) + '</label><input id="s-azh" value="' + v("address_zh") + '"></div>' +
@@ -1130,21 +1136,8 @@ async function saveShop() {
   };
   if (!data.name_zh) { toast("⚠️"); return; }
   try {
-    // Upload a new shop photo if one was chosen.
-    const fileInput = document.getElementById("s-photo");
-    const file = fileInput && fileInput.files && fileInput.files[0];
-    if (file) {
-      if (!file.type.startsWith("image/")) throw new Error(t("photoOnlyImages"));
-      if (file.size > 5 * 1024 * 1024) throw new Error(t("photoTooBig"));
-      const ext = ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")) || "jpg";
-      const shopId = (myShop && myShop.id) || "new";
-      const path = shopId + "/" + Date.now() + "." + ext;
-      const { error: upErr } = await sb.storage.from("shop-photos").upload(path, file);
-      if (upErr) throw upErr;
-      data.photo_url = sb.storage.from("shop-photos").getPublicUrl(path).data.publicUrl;
-    } else if (myShop) {
-      data.photo_url = myShop.photo_url || null;
-    }
+    if (!myShop) data.photo_url = null;
+    else data.photo_url = myShop.photo_url || null;
     if (myShop) {
       const { error } = await sb.from("shops").update(data).eq("id", myShop.id);
       if (error) throw error;
@@ -1153,6 +1146,24 @@ async function saveShop() {
       if (error) throw error;
     }
     vendorTab = "info"; viewVendor();
+  } catch (e) { toast("⚠️ " + e.message); }
+}
+async function uploadShopPhoto() {
+  const fileInput = document.getElementById("v-photo");
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (!file || !myShop) return;
+  try {
+    if (!file.type.startsWith("image/")) { toast("⚠️ " + t("photoOnlyImages")); return; }
+    if (file.size > 5 * 1024 * 1024) { toast("⚠️ " + t("photoTooBig")); return; }
+    toast("⏳ " + t("uploadingPhoto"));
+    const ext = ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")) || "jpg";
+    const path = myShop.id + "/" + Date.now() + "." + ext;
+    const { error: upErr } = await sb.storage.from("shop-photos").upload(path, file);
+    if (upErr) throw upErr;
+    const url = sb.storage.from("shop-photos").getPublicUrl(path).data.publicUrl;
+    const { error } = await sb.from("shops").update({ photo_url: url }).eq("id", myShop.id);
+    if (error) throw error;
+    viewVendor();
   } catch (e) { toast("⚠️ " + e.message); }
 }
 async function drawVendorMenu() {
