@@ -20,6 +20,8 @@ const STR = {
   phoneOrEmail:       { zh: "手机号或邮箱", my: "ဖုန်းနံပါတ် သို့မဟုတ် Gmail", en: "Phone number or Gmail" },
   enterPhoneOrEmail:  { zh: "请输入手机号或邮箱", my: "ဖုန်းနံပါတ် သို့မဟုတ် Gmail ထည့်ပါ", en: "Enter a phone number or Gmail" },
   createAccount:      { zh: "创建账号", my: "အကောင့်ဖွင့်မည်", en: "Create Account" },
+  login:              { zh: "登录", my: "ဝင်မည်", en: "Log in" },
+  loginFailed:        { zh: "登录失败，请检查账号和密码", my: "ဝင်လို့မရပါ — အကောင့်နဲ့ စကားဝှက် စစ်ပါ", en: "Login failed — check your account and password" },
   signInWith:         { zh: "使用以下方式登录", my: "အောက်ပါတို့ဖြင့် ဝင်ရန်", en: "Sign in with" },
   googleSignIn:       { zh: "用 Google 登录", my: "Google နဲ့ ဝင်မည်", en: "Sign in with Google" },
   wechatSignIn:       { zh: "用微信登录", my: "WeChat နဲ့ ဝင်မည်", en: "Sign in with WeChat" },

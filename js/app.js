@@ -226,6 +226,7 @@ function needLogin() {
 
 /* ---------- auth: profile / settings / help / contact ---------- */
 let regRole = "customer";
+let authMode = "register"; // register | login
 
 /* Profile: logged in → account page; logged out → Create Account box. */
 function viewProfile() {
@@ -241,19 +242,27 @@ function viewProfile() {
     return;
   }
   app.innerHTML =
-    '<div class="card"><h2>📝 ' + esc(t("createAccount")) + "</h2>" +
+    '<div class="card"><h2>' + (authMode === "login" ? "🔑 " + esc(t("login")) : "📝 " + esc(t("createAccount"))) + "</h2>" +
     '<div class="field"><div class="role-pick">' +
-    '<div class="tab' + (regRole === "customer" ? " active" : "") + '" onclick="setRegRole(\'customer\')">' + esc(t("iAmCustomer")) + "</div>" +
-    '<div class="tab' + (regRole === "vendor" ? " active" : "") + '" onclick="setRegRole(\'vendor\')">' + esc(t("iAmVendor")) + "</div>" +
+    '<div class="tab' + (authMode === "register" ? " active" : "") + '" onclick="setAuthMode(\'register\')">' + esc(t("createAccount")) + "</div>" +
+    '<div class="tab' + (authMode === "login" ? " active" : "") + '" onclick="setAuthMode(\'login\')">' + esc(t("login")) + "</div>" +
     "</div></div>" +
-    (regRole === "vendor"
-      ? '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="f-shopname"></div>' +
-        '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="f-ownername"></div>'
-      : '<div class="field"><label>' + esc(t("firstName")) + '</label><input id="f-fn"></div>' +
-        '<div class="field"><label>' + esc(t("lastName")) + '</label><input id="f-ln"></div>') +
-    '<div class="field"><label>' + esc(t("phoneOrEmail")) + '</label><input id="f-contact" placeholder="09xxxxxxxxx / you@gmail.com"></div>' +
-    '<div class="field"><label>' + esc(t("password")) + '</label><input id="f-pass2" type="password"></div>' +
-    '<button class="btn" style="width:100%" onclick="doCreateAccount()">' + esc(t("createAccount")) + "</button>" +
+    (authMode === "login"
+      ? '<div class="field"><label>' + esc(t("phoneOrEmail")) + '</label><input id="l-contact" placeholder="09xxxxxxxxx / you@gmail.com"></div>' +
+        '<div class="field"><label>' + esc(t("password")) + '</label><input id="l-pass" type="password"></div>' +
+        '<button class="btn" style="width:100%" onclick="doLogin()">' + esc(t("login")) + "</button>"
+      : '<div class="field"><div class="role-pick">' +
+        '<div class="tab' + (regRole === "customer" ? " active" : "") + '" onclick="setRegRole(\'customer\')">' + esc(t("iAmCustomer")) + "</div>" +
+        '<div class="tab' + (regRole === "vendor" ? " active" : "") + '" onclick="setRegRole(\'vendor\')">' + esc(t("iAmVendor")) + "</div>" +
+        "</div></div>" +
+        (regRole === "vendor"
+          ? '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="f-shopname"></div>' +
+            '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="f-ownername"></div>'
+          : '<div class="field"><label>' + esc(t("firstName")) + '</label><input id="f-fn"></div>' +
+            '<div class="field"><label>' + esc(t("lastName")) + '</label><input id="f-ln"></div>') +
+        '<div class="field"><label>' + esc(t("phoneOrEmail")) + '</label><input id="f-contact" placeholder="09xxxxxxxxx / you@gmail.com"></div>' +
+        '<div class="field"><label>' + esc(t("password")) + '</label><input id="f-pass2" type="password"></div>' +
+        '<button class="btn" style="width:100%" onclick="doCreateAccount()">' + esc(t("createAccount")) + "</button>") +
     '<div id="auth-err" class="muted"></div></div>' +
     '<div class="card"><div class="divider">' + esc(t("signInWith")) + "</div>" +
     '<button class="social-btn" onclick="doGoogleLogin()">🔵 ' + esc(t("googleSignIn")) + "</button>" +
@@ -270,6 +279,26 @@ function viewProfile() {
     '<button class="social-btn" disabled>📘 ' + esc(t("facebookSignIn")) + ' <span class="soon">' + esc(t("comingSoon")) + "</span></button></div>";
 }
 function setRegRole(r) { regRole = r; viewProfile(); }
+function setAuthMode(m) { authMode = m; viewProfile(); }
+async function doLogin() {
+  const contact = document.getElementById("l-contact").value.trim();
+  const pass = document.getElementById("l-pass").value;
+  const errBox = document.getElementById("auth-err");
+  const showErr = (m) => { if (errBox) errBox.textContent = "⚠️ " + m; };
+  try {
+    // Phone-number accounts were registered with a derived internal email.
+    let email = contact;
+    if (contact.indexOf("@") < 0) {
+      const digits = contact.replace(/\D/g, "");
+      if (!digits) throw new Error(t("enterPhoneOrEmail"));
+      email = "phone_" + digits + "@phone.mongla.local";
+    }
+    const { data, error } = await sb.auth.signInWithPassword({ email: email, password: pass });
+    if (error) throw error;
+    if (!data.session) throw new Error(t("loginFailed"));
+    location.hash = "#/";
+  } catch (e) { showErr(e.message || e); }
+}
 async function doCreateAccount() {
   const isVendor = regRole === "vendor";
   const shopNm = isVendor ? document.getElementById("f-shopname").value.trim() : "";
