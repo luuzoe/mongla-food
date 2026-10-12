@@ -17,9 +17,9 @@ const SAMPLE_SHOPS = [
     ownerName: "李老板", address_zh: "勐拉中心街88号", address_my: "မိုင်းလား စင်တာလမ်း ၈၈",
     phone: "+86 13800000001", category: "foods", emoji: "🍜", sample: true,
     menu: [
-      { name_zh: "过桥米线", name_my: "ကျော်ဖြတ်ခေါက်ဆွဲ", name_en: "Crossing-bridge noodles", price: 15, category: "foods", emoji: "🍜" },
-      { name_zh: "小锅米线", name_my: "အိုးသေးခေါက်ဆွဲ", name_en: "Small-pot noodles", price: 12, category: "foods", emoji: "🍜" },
-      { name_zh: "烤鸡翅", name_my: "ကြက်တောင်ပံကင်", name_en: "Grilled chicken wings", price: 8, category: "foods", emoji: "🍢" }
+      { name_zh: "过桥米线", name_my: "ကျော်ဖြတ်ခေါက်ဆွဲ", name_en: "Crossing-bridge noodles", price: 15, category: "foods", emoji: "🍜", photoUrl: "img/dish-01.jpg" },
+      { name_zh: "小锅米线", name_my: "အိုးသေးခေါက်ဆွဲ", name_en: "Small-pot noodles", price: 12, category: "foods", emoji: "🍜", photoUrl: "img/dish-02.jpg" },
+      { name_zh: "烤鸡翅", name_my: "ကြက်တောင်ပံကင်", name_en: "Grilled chicken wings", price: 8, category: "foods", emoji: "🍢", photoUrl: "img/dish-03.jpg" }
     ]
   },
   {
@@ -28,9 +28,9 @@ const SAMPLE_SHOPS = [
     ownerName: "王老板", address_zh: "勐拉友谊路12号", address_my: "မိုင်းလား ချစ်ကြည်ရေးလမ်း ၁၂",
     phone: "+86 13800000002", category: "fruits", emoji: "🍎", sample: true,
     menu: [
-      { name_zh: "芒果", name_my: "သရက်သီး", name_en: "Mango", price: 10, category: "fruits", emoji: "🥭" },
-      { name_zh: "西瓜", name_my: "ဖရဲသီး", name_en: "Watermelon", price: 8, category: "fruits", emoji: "🍉" },
-      { name_zh: "香蕉", name_my: "ငှက်ပျောသီး", name_en: "Banana", price: 5, category: "fruits", emoji: "🍌" }
+      { name_zh: "芒果", name_my: "သရက်သီး", name_en: "Mango", price: 10, category: "fruits", emoji: "🥭", photoUrl: "img/dish-04.jpg" },
+      { name_zh: "西瓜", name_my: "ဖရဲသီး", name_en: "Watermelon", price: 8, category: "fruits", emoji: "🍉", photoUrl: "img/dish-05.jpg" },
+      { name_zh: "香蕉", name_my: "ငှက်ပျောသီး", name_en: "Banana", price: 5, category: "fruits", emoji: "🍌", photoUrl: "img/dish-06.jpg" }
     ]
   },
   {
@@ -39,9 +39,9 @@ const SAMPLE_SHOPS = [
     ownerName: "U Aung", address_zh: "勐拉曼仰路3号", address_my: "မိုင်းလား မန်ယန်းလမ်း ၃",
     phone: "+86 13800000003", category: "rice", emoji: "🍚", sample: true,
     menu: [
-      { name_zh: "鸡腿饭", name_my: "ကြက်ပေါင်ထမင်း", name_en: "Chicken leg rice", price: 18, category: "rice", emoji: "🍗" },
-      { name_zh: "排骨饭", name_my: "နံရိုးထမင်း", name_en: "Pork ribs rice", price: 20, category: "rice", emoji: "🍖" },
-      { name_zh: "炒饭", name_my: "ထမင်းကြော်", name_en: "Fried rice", price: 12, category: "rice", emoji: "🍚" }
+      { name_zh: "鸡腿饭", name_my: "ကြက်ပေါင်ထမင်း", name_en: "Chicken leg rice", price: 18, category: "rice", emoji: "🍗", photoUrl: "img/dish-07.jpg" },
+      { name_zh: "排骨饭", name_my: "နံရိုးထမင်း", name_en: "Pork ribs rice", price: 20, category: "rice", emoji: "🍖", photoUrl: "img/dish-08.jpg" },
+      { name_zh: "炒饭", name_my: "ထမင်းကြော်", name_en: "Fried rice", price: 12, category: "rice", emoji: "🍚", photoUrl: "img/dish-09.jpg" }
     ]
   },
   {
@@ -50,9 +50,9 @@ const SAMPLE_SHOPS = [
     ownerName: "陈老板", address_zh: "勐拉中心街101号", address_my: "မိုင်းလား စင်တာလမ်း ၁၀၁",
     phone: "+86 13800000004", category: "cakes", emoji: "🍰", sample: true,
     menu: [
-      { name_zh: "巧克力蛋糕", name_my: "ချောကလက်ကိတ်", name_en: "Chocolate cake", price: 25, category: "cakes", emoji: "🍫" },
-      { name_zh: "奶油蛋糕", name_my: "ခရင်မ်ကိတ်", name_en: "Cream cake", price: 22, category: "cakes", emoji: "🍰" },
-      { name_zh: "面包", name_my: "ပေါင်မုန့်", name_en: "Bread", price: 6, category: "cakes", emoji: "🍞" }
+      { name_zh: "巧克力蛋糕", name_my: "ချောကလက်ကိတ်", name_en: "Chocolate cake", price: 25, category: "cakes", emoji: "🍫", photoUrl: "img/dish-10.jpg" },
+      { name_zh: "奶油蛋糕", name_my: "ခရင်မ်ကိတ်", name_en: "Cream cake", price: 22, category: "cakes", emoji: "🍰", photoUrl: "img/dish-11.jpg" },
+      { name_zh: "面包", name_my: "ပေါင်မုန့်", name_en: "Bread", price: 6, category: "cakes", emoji: "🍞", photoUrl: "img/dish-12.jpg" }
     ]
   },
   {
@@ -61,9 +61,9 @@ const SAMPLE_SHOPS = [
     ownerName: "张老板", address_zh: "勐拉夜市A区5号", address_my: "မိုင်းလား ညဈေး A ခန်း ၅",
     phone: "+86 13800000005", category: "icecream", emoji: "🍨", sample: true,
     menu: [
-      { name_zh: "巧克力冰淇淋", name_my: "ချောကလက်ရေခဲမုန့်", name_en: "Chocolate ice cream", price: 9, category: "icecream", emoji: "🍦" },
-      { name_zh: "香草冰淇淋", name_my: "ဗနီလာရေခဲမုန့်", name_en: "Vanilla ice cream", price: 9, category: "icecream", emoji: "🍨" },
-      { name_zh: "芒果沙冰", name_my: "သရက်သီးရေခဲ", name_en: "Mango shaved ice", price: 12, category: "icecream", emoji: "🍧" }
+      { name_zh: "巧克力冰淇淋", name_my: "ချောကလက်ရေခဲမုန့်", name_en: "Chocolate ice cream", price: 9, category: "icecream", emoji: "🍦", photoUrl: "img/dish-13.jpg" },
+      { name_zh: "香草冰淇淋", name_my: "ဗနီလာရေခဲမုန့်", name_en: "Vanilla ice cream", price: 9, category: "icecream", emoji: "🍨", photoUrl: "img/dish-14.jpg" },
+      { name_zh: "芒果沙冰", name_my: "သရက်သီးရေခဲ", name_en: "Mango shaved ice", price: 12, category: "icecream", emoji: "🍧", photoUrl: "img/dish-15.jpg" }
     ]
   }
 ];

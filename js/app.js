@@ -1009,7 +1009,7 @@ async function importSamples() {
       const rows = menu.map(m => ({
         shop_id: ins.id, category: m.category,
         name_zh: m.name_zh, name_my: m.name_my, name_en: m.name_en,
-        price_yuan: m.price, emoji: m.emoji, photo_url: null,
+        price_yuan: m.price, emoji: m.emoji, photo_url: m.photoUrl || null,
         available: true, sample: true
       }));
       const { error: mErr } = await sb.from("menu_items").insert(rows);
