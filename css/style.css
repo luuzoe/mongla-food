@@ -64,8 +64,9 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 90px; }
 .profile-row .k { color: var(--muted); }
 .tabs { display: flex; gap: 8px; margin: 12px 0; }
 .tab {
-  flex: 1; text-align: center; padding: 10px; border-radius: 10px; font-weight: 600;
+  flex: 1; text-align: center; padding: 10px 4px; border-radius: 10px; font-weight: 600;
   background: #fff; border: 1px solid var(--line); cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px;
 }
 .tab.active { background: var(--pink); color: #fff; border-color: var(--pink); }
 .menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }

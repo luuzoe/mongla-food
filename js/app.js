@@ -1074,10 +1074,10 @@ async function viewVendor() {
   }
   body.innerHTML =
     '<div class="tabs">' +
-    '<div class="tab' + (vendorTab === "info" ? " active" : "") + '" onclick="setVendorTab(\'info\')">🏪</div>' +
-    '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("manageMenu")) + "</div>" +
-    '<div class="tab' + (vendorTab === "chats" ? " active" : "") + '" onclick="setVendorTab(\'chats\')">💬 ' + esc(t("incomingChats")) + "</div>" +
-    '<div class="tab' + (vendorTab === "orders" ? " active" : "") + '" onclick="setVendorTab(\'orders\')">📦 ' + esc(t("incomingOrders")) + "</div>" +
+    '<div class="tab' + (vendorTab === "info" ? " active" : "") + '" onclick="setVendorTab(\'info\')">🏪 ' + esc(t("tabShop")) + "</div>" +
+    '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("menu")) + "</div>" +
+    '<div class="tab' + (vendorTab === "chats" ? " active" : "") + '" onclick="setVendorTab(\'chats\')">💬 ' + esc(t("tabChats")) + "</div>" +
+    '<div class="tab' + (vendorTab === "orders" ? " active" : "") + '" onclick="setVendorTab(\'orders\')">📦 ' + esc(t("tabOrders")) + "</div>" +
     '<div class="tab' + (vendorTab === "posts" ? " active" : "") + '" onclick="setVendorTab(\'posts\')">📢 ' + esc(t("posts")) + "</div>" +
     "</div><div id=\"vtab\"></div>";
   if (vendorTab === "info") document.getElementById("vtab").innerHTML = shopForm(myShop);
