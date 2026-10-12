@@ -1022,12 +1022,9 @@ function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
 function shopForm(s) {
   const v = (k) => esc(s[k] || "");
   return '<div class="card"><h3>' + esc(myShop ? t("saveShop") : t("createShop")) + "</h3>" +
-    '<div class="field"><label>' + esc(t("shopName")) + " (中文)</label><input id=\"s-zh\" value=\"" + v("name_zh") + "\"></div>" +
-    '<div class="field"><label>' + esc(t("shopName")) + " (မြန်မာ)</label><input id=\"s-my\" value=\"" + v("name_my") + "\"></div>" +
-    '<div class="field"><label>' + esc(t("shopName")) + " (English)</label><input id=\"s-en\" value=\"" + v("name_en") + "\"></div>" +
+    '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="s-zh" value="' + v("name_zh") + '"></div>' +
     '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="s-owner" value="' + v("ownerName") + '"></div>' +
-    '<div class="field"><label>' + esc(t("address")) + " (中文)</label><input id=\"s-azh\" value=\"" + v("address_zh") + "\"></div>" +
-    '<div class="field"><label>' + esc(t("address")) + " (မြန်မာ)</label><input id=\"s-amy\" value=\"" + v("address_my") + "\"></div>" +
+    '<div class="field"><label>' + esc(t("address")) + '</label><input id="s-azh" value="' + v("address_zh") + '"></div>' +
     '<div class="field"><label>' + esc(t("phone")) + '</label><input id="s-phone" value="' + v("phone") + '"></div>' +
     '<div class="field"><label>' + esc(t("wechatId")) + '</label><input id="s-wechat" value="' + v("wechatId") + '"></div>' +
     '<div class="field"><label>' + esc(t("deliveryFeeYuan")) + '</label><input id="s-fee" type="number" min="0" step="1" value="' + esc(s.deliveryFee != null ? s.deliveryFee : 0) + '"></div>' +
@@ -1040,11 +1037,12 @@ function shopForm(s) {
 async function saveShop() {
   const data = {
     name_zh: document.getElementById("s-zh").value.trim(),
-    name_my: document.getElementById("s-my").value.trim(),
-    name_en: document.getElementById("s-en").value.trim(),
+    // Single-field form now: keep any previously saved other-language values.
+    name_my: (myShop && myShop.name_my) || "",
+    name_en: (myShop && myShop.name_en) || "",
     owner_name: document.getElementById("s-owner").value.trim(),
     address_zh: document.getElementById("s-azh").value.trim(),
-    address_my: document.getElementById("s-amy").value.trim(),
+    address_my: (myShop && myShop.address_my) || "",
     phone: document.getElementById("s-phone").value.trim(),
     wechat_id: document.getElementById("s-wechat").value.trim() || null,
     delivery_fee_yuan: Math.max(0, Number(document.getElementById("s-fee").value) || 0),
@@ -1073,9 +1071,7 @@ async function drawVendorMenu() {
   const items = (data || []).map(mapItem);
   box.innerHTML =
     '<div class="card"><h3>➕ ' + esc(t("addItem")) + "</h3>" +
-    '<div class="field"><input id="m-zh" placeholder="' + esc(t("itemNameZh")) + '"></div>' +
-    '<div class="field"><input id="m-my" placeholder="' + esc(t("itemNameMy")) + '"></div>' +
-    '<div class="field"><input id="m-en" placeholder="' + esc(t("itemNameEn")) + '"></div>' +
+    '<div class="field"><input id="m-zh" placeholder="' + esc(t("itemName")) + '"></div>' +
     '<div class="field"><input id="m-price" type="number" min="0" placeholder="' + esc(t("priceYuan")) + '"></div>' +
     '<div class="field"><input id="m-photo" placeholder="' + esc(t("photoUrl")) + '"></div>' +
     '<button class="btn" style="width:100%" onclick="addMenuItem()">' + esc(t("add")) + "</button></div>" +
@@ -1087,8 +1083,7 @@ async function drawVendorMenu() {
 }
 async function addMenuItem() {
   const nzh = document.getElementById("m-zh").value.trim();
-  const nmy = document.getElementById("m-my").value.trim();
-  const nen = document.getElementById("m-en").value.trim();
+  const nmy = "", nen = "";
   const price = Number(document.getElementById("m-price").value);
   const photoUrl = document.getElementById("m-photo").value.trim();
   if (!nzh || !(price >= 0)) { alert("⚠️"); return; }

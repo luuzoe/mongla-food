@@ -89,6 +89,7 @@ const STR = {
   saveShop:           { zh: "保存店铺信息", my: "ဆိုင်အချက်အလက် သိမ်းမည်", en: "Save shop info" },
   manageMenu:         { zh: "菜单管理", my: "မီနူး စီမံခန့်ခွဲမှု", en: "Manage menu" },
   addItem:            { zh: "添加菜品", my: "ပစ္စည်းအသစ်ထည့်မည်", en: "Add item" },
+  itemName:           { zh: "菜品名称", my: "ပစ္စည်းနာမည်", en: "Item name" },
   itemNameZh:         { zh: "中文名", my: "တရုတ်နာမည်", en: "Chinese name" },
   itemNameMy:         { zh: "缅文名", my: "မြန်မာနာမည်", en: "Burmese name" },
   itemNameEn:         { zh: "英文名", my: "အင်္ဂလိပ်နာမည်", en: "English name" },
