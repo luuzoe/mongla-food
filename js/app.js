@@ -1238,14 +1238,16 @@ async function drawVendorPosts() {
       .eq("shop_id", myShop.id).order("created_at", { ascending: false });
     if (error) throw error;
     const list = (data || []).map(mapPost);
-    listHtml = list.length ? list.map(p =>
-      '<div class="card"><div style="display:flex;gap:10px;align-items:center">' +
-      (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy" style="width:64px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0">' : "") +
-      '<div style="flex:1;min-width:0"><div>' + esc(p.body) + '</div>' +
-      '<div class="dish-price">' + money(p.price) + '</div>' +
-      '<div class="muted">' + esc(fmtTime(p.createdAt)) + "</div></div>" +
-      '<button class="btn small gray" onclick="delPost(\'' + p.id + "')\">" + esc(t("del")) + "</button></div></div>"
-    ).join("") : '<div class="card center muted">' + esc(t("noPosts")) + "</div>";
+    listHtml = list.length ? '<div class="dish-grid">' + list.map(p =>
+      '<div class="dish-card">' +
+      (p.photoUrl
+        ? '<div class="dish-photo"><img src="' + esc(p.photoUrl) + '" alt="" loading="lazy"></div>'
+        : '<div class="dish-photo ph-all">📢</div>') +
+      '<div class="dish-body"><div class="dish-name">' + esc(p.body) + '</div>' +
+      '<div class="dish-foot"><span class="dish-price">' + money(p.price) + "</span>" +
+      '<button class="btn small gray" onclick="delPost(\'' + p.id + "')\">" + esc(t("del")) + "</button></div>" +
+      '<div class="muted" style="font-size:11px">' + esc(fmtTime(p.createdAt)) + "</div></div></div>"
+    ).join("") + "</div>" : '<div class="card center muted">' + esc(t("noPosts")) + "</div>";
   } catch (e) { listHtml = '<div class="card">⚠️ ' + esc(e.message) + "</div>"; }
   box.innerHTML =
     '<button class="btn" style="width:100%;margin-bottom:12px" onclick="togglePostForm()">📢 ' + esc(t("createPost")) + "</button>" +
