@@ -113,7 +113,16 @@ const STR = {
   welcomeVendor:      { zh: "欢迎入驻！请先创建你的店铺。", my: "ကြိုဆိုပါတယ်။ အရင်ဆုံး သင့်ဆိုင် ဖွင့်ပါ။", en: "Welcome! Please create your shop first." },
   makeAdminTip:       { zh: "设为管理员：去 Supabase Dashboard → Table Editor → users 表 → 找到该用户 → role 改为 admin", my: "အက်ဒမင်လုပ်ရန်: Supabase Dashboard → Table Editor → users table → ထိုသူကိုရှာ → role ကို admin ဟုပြောင်းပါ", en: "To make an admin: Supabase Dashboard → Table Editor → users table → find the user → change role to admin" },
   checkEmailConfirm:  { zh: "注册成功，但需要确认邮箱。请去 Supabase → Authentication → Providers → Email，关闭“Confirm email”后再试。", my: "အကောင့်ဖွင့်ပြီးပါပြီ၊ ဒါပေမယ့် email အတည်ပြုဖို့လိုနေပါတယ်။ Supabase → Authentication → Providers → Email မှာ 'Confirm email' ကို ပိတ်ပြီးမှ ပြန်လုပ်ကြည့်ပါ။", en: "Signed up, but email confirmation is required. In Supabase → Authentication → Providers → Email, turn OFF 'Confirm email' and try again." },
-  langName:           { zh: "中文", my: "မြန်မာ", en: "English" }
+  langName:           { zh: "中文", my: "မြန်မာ", en: "English" },
+  deliveryAddress:   { zh: "收货地址", my: "ပို့ဆောင်ရမည့်လိပ်စာ", en: "Delivery address" },
+  deliveryPhone:     { zh: "收货电话", my: "လက်ခံမည့်ဖုန်းနံပါတ်", en: "Delivery phone" },
+  orderNote:         { zh: "备注（可选）", my: "မှတ်ချက် (မထည့်လည်းရ)", en: "Note (optional)" },
+  notePlaceholder:   { zh: "例如：少辣、不要香菜…", my: "ဥပမာ - အစပ်လျှော့၊ နံနံပင်မထည့်ပါနဲ့…", en: "e.g. less spicy, no cilantro…" },
+  fillAddressPhone:  { zh: "请填写收货地址和电话", my: "ပို့ဆောင်ရမည့်လိပ်စာနဲ့ ဖုန်းနံပါတ် ဖြည့်ပါ", en: "Please fill in delivery address and phone" },
+  deliveryFee:       { zh: "配送费", my: "ပို့ဆောင်ခ", en: "Delivery fee" },
+  deliveryFeeYuan:   { zh: "配送费（元 ¥）", my: "ပို့ဆောင်ခ (ယွမ် ¥)", en: "Delivery fee (¥ yuan)" },
+  wechatId:          { zh: "微信号", my: "WeChat ID", en: "WeChat ID" },
+  subtotal:          { zh: "小计", my: "ပစ္စည်းဖိုး", en: "Subtotal" }
 };
 
 let LANG = localStorage.getItem("ml_lang") || "zh";

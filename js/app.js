@@ -24,6 +24,7 @@ function mapShop(r) {
     id: r.id, name_zh: r.name_zh, name_my: r.name_my, name_en: r.name_en,
     ownerName: r.owner_name, address_zh: r.address_zh, address_my: r.address_my,
     phone: r.phone, category: r.category, emoji: r.emoji, sample: r.sample,
+    deliveryFee: Number(r.delivery_fee_yuan) || 0, wechatId: r.wechat_id || "",
     ownerUid: r.owner_id, createdAt: r.created_at
   };
 }
@@ -56,6 +57,8 @@ function mapOrder(r) {
   return {
     id: r.id, shopId: r.shop_id, customerUid: r.customer_id, vendorUid: r.vendor_id,
     items: r.items, total: Number(r.total_yuan) || 0, status: r.status,
+    deliveryAddress: r.delivery_address || "", customerPhone: r.customer_phone || "",
+    note: r.note || "", deliveryFee: Number(r.delivery_fee_yuan) || 0,
     convId: r.conversation_id, customerName: r.customer_name,
     customerEmail: r.customer_email, createdAt: r.created_at
   };
@@ -167,6 +170,7 @@ function renderDrawer() {
   if (!box) return;
   const items = [
     { icon: "👤", label: t("profile"), hash: "#/profile" },
+    { icon: "📦", label: t("orders"), hash: "#/orders" },
     { icon: "⚙️", label: t("settings"), hash: "#/settings" },
     { icon: "❓", label: t("help"), hash: "#/help" },
     { icon: "📞", label: t("contactUs"), hash: "#/contact" },
@@ -224,6 +228,7 @@ function viewProfile() {
       '<div class="profile-row"><span class="k">' + esc(t("yourName")) + "</span><span>" + esc((userDoc && userDoc.name) || currentUser.email) + "</span></div>" +
       '<div class="profile-row"><span class="k">' + esc(t("email")) + "</span><span>" + esc(currentUser.email || "-") + "</span></div>" +
       '<div class="profile-row"><span class="k">' + esc(t("role")) + "</span><span>" + esc((userDoc && userDoc.role) || "-") + "</span></div>" +
+      '<button class="btn" style="width:100%;margin-top:10px" onclick="location.hash=\'#/orders\'">📦 ' + esc(t("orders")) + "</button>" +
       '<button class="btn" style="width:100%;margin-top:10px" onclick="doLogout()">🚪 ' + esc(t("logout")) + "</button></div>";
     return;
   }
@@ -470,6 +475,8 @@ async function viewShop(id) {
     '<div class="profile-row"><span class="k">' + esc(t("ownerName")) + "</span><span>" + esc(s.ownerName || "-") + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("address")) + "</span><span>" + esc(addr) + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("phone")) + "</span><span><a href=\"tel:" + esc(s.phone || "") + "\">" + esc(s.phone || "-") + "</a></span></div>" +
+    (s.wechatId ? '<div class="profile-row"><span class="k">' + esc(t("wechatId")) + '</span><span class="copyable">' + esc(s.wechatId) + "</span></div>" : "") +
+    (s.deliveryFee > 0 ? '<div class="profile-row"><span class="k">🛵 ' + esc(t("deliveryFee")) + "</span><span>" + money(s.deliveryFee) + "</span></div>" : "") +
     "</div>" +
     '<div class="tabs">' +
     '<div class="tab' + (shopTab === "menu" ? " active" : "") + '" onclick="setShopTab(\'' + id + "','menu')\">🍜 " + esc(t("menu")) + "</div>" +
@@ -529,7 +536,22 @@ function renderCartBar() {
 }
 
 /* ---------- cart view + checkout (one order per shop) ---------- */
-function viewCart() {
+let cartFees = {}; // shopId -> delivery fee, refreshed by viewCart()
+async function shopFee(sid) {
+  if (cartFees[sid] != null) return cartFees[sid];
+  let fee = 0;
+  try {
+    const { data } = await sb.from("shops").select("delivery_fee_yuan").eq("id", sid).single();
+    if (data) fee = Number(data.delivery_fee_yuan) || 0;
+  } catch (e) {}
+  cartFees[sid] = fee;
+  return fee;
+}
+function cartFeesTotal() {
+  return Object.values(cartFees).reduce((a, f) => a + (Number(f) || 0), 0);
+}
+function cartGrandTotal() { return cartTotal() + cartFeesTotal(); }
+async function viewCart() {
   const app = document.getElementById("app");
   const entries = Object.entries(cart.items);
   if (!entries.length) {
@@ -539,10 +561,13 @@ function viewCart() {
   }
   const groups = {};
   entries.forEach(([key, it]) => { (groups[it.shopId] = groups[it.shopId] || []).push(Object.assign({ key: key }, it)); });
+  cartFees = {};
+  for (const sid of Object.keys(groups)) await shopFee(sid);
   let html = '<p><a href="#/">' + esc(t("backToMenu")) + "</a></p>" +
     "<h2>🛒 " + esc(t("cart")) + " (" + cartCount() + ")</h2>";
   for (const sid of Object.keys(groups)) {
     const g = groups[sid];
+    const fee = cartFees[sid] || 0;
     const shopLabel = LANG === "en" ? (g[0].shop_en || g[0].shop_zh) : (LANG === "my" ? (g[0].shop_my || g[0].shop_zh) : g[0].shop_zh);
     html += '<div class="card"><h3>🏪 ' + esc(shopLabel) + "</h3>" + g.map(it => {
       const nm = itemName(it);
@@ -550,18 +575,43 @@ function viewCart() {
         '<div class="pr">' + money(it.price) + "</div></div>" +
         '<div class="qty-ctrl"><button onclick="cartViewDelta(\'' + it.key + "',-1)\">−</button><b>" + it.qty + "</b>" +
         '<button onclick="cartViewDelta(\'' + it.key + "',1)\">＋</button></div></div>";
-    }).join("") + "</div>";
+    }).join("") +
+    (fee > 0 ? '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(fee) + "</b></div>" : "") +
+    "</div>";
   }
-  html += '<div class="card"><div class="profile-row"><span>' + esc(t("total")) + "</span><b>" + money(cartTotal()) + "</b></div>" +
+  html += '<div class="card"><h3>📍 ' + esc(t("deliveryAddress")) + "</h3>" +
+    '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><input id="co-addr"></div>' +
+    '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="co-phone" value="' + esc((userDoc && userDoc.phone) || "") + '"></div>' +
+    '<div class="field"><label>' + esc(t("orderNote")) + '</label><input id="co-note" placeholder="' + esc(t("notePlaceholder")) + '"></div></div>';
+  html += '<div class="card">' +
+    '<div class="profile-row"><span>' + esc(t("subtotal")) + "</span><b>" + money(cartTotal()) + "</b></div>" +
+    '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(cartFeesTotal()) + "</b></div>" +
+    '<div class="profile-row"><span>' + esc(t("total")) + "</span><b>" + money(cartGrandTotal()) + "</b></div>" +
     '<button class="btn" style="width:100%;margin-top:8px" onclick="checkoutAll()">' + esc(t("buyNow")) + "</button></div>";
   app.innerHTML = html;
 }
 function cartViewDelta(key, delta) {
   const cur = cart.items[key];
   if (!cur) return;
+  // preserve checkout fields across the re-render
+  const addrEl = document.getElementById("co-addr");
+  const saved = addrEl ? {
+    a: addrEl.value,
+    p: document.getElementById("co-phone").value,
+    n: document.getElementById("co-note").value
+  } : null;
   cur.qty += delta;
   if (cur.qty <= 0) delete cart.items[key];
-  viewCart();
+  viewCart().then(() => {
+    if (saved) {
+      const a2 = document.getElementById("co-addr");
+      if (a2) {
+        a2.value = saved.a;
+        document.getElementById("co-phone").value = saved.p;
+        document.getElementById("co-note").value = saved.n;
+      }
+    }
+  });
 }
 async function checkoutAll() {
   if (needLogin()) return;
@@ -569,22 +619,27 @@ async function checkoutAll() {
   Object.values(cart.items).forEach(it => { (groups[it.shopId] = groups[it.shopId] || []).push(it); });
   const shopIds = Object.keys(groups);
   if (!shopIds.length) return;
-  if (!confirm(t("confirmOrder") + " · " + money(cartTotal()))) return;
+  const addr = (document.getElementById("co-addr").value || "").trim();
+  const phone = (document.getElementById("co-phone").value || "").trim();
+  const note = (document.getElementById("co-note").value || "").trim();
+  if (!addr || !phone) { alert("⚠️ " + t("fillAddressPhone")); return; }
+  if (!confirm(t("confirmOrder") + " · " + money(cartGrandTotal()))) return;
   try {
     for (const sid of shopIds) {
       const items = groups[sid].map(it => ({
         itemId: it.itemId, name_zh: it.name_zh, name_my: it.name_my, name_en: it.name_en,
         price: it.price, qty: it.qty
       }));
-      await placeShopOrder(sid, items);
+      await placeShopOrder(sid, items, { address: addr, phone: phone, note: note });
     }
     cart = { items: {} };
+    cartFees = {};
     alert("✅ " + t("orderSent"));
     location.hash = "#/orders";
   } catch (e) { alert("⚠️ " + e.message); }
 }
 /* Create one order + drop the item list as a message into the vendor's chatbox. */
-async function placeShopOrder(shopId, items) {
+async function placeShopOrder(shopId, items, delivery) {
   let s = shopCache[shopId];
   if (!s) {
     const { data, error } = await sb.from("shops").select("*").eq("id", shopId).single();
@@ -592,7 +647,9 @@ async function placeShopOrder(shopId, items) {
     s = mapShop(data);
     shopCache[shopId] = s;
   }
-  const total = items.reduce((a, it) => a + it.qty * it.price, 0);
+  const fee = await shopFee(shopId);
+  const subtotal = items.reduce((a, it) => a + it.qty * it.price, 0);
+  const total = subtotal + fee;
   const { data: order, error: oErr } = await sb.from("orders").insert({
     shop_id: shopId,
     customer_id: currentUser.id,
@@ -602,15 +659,19 @@ async function placeShopOrder(shopId, items) {
     customer_name: (userDoc && userDoc.name) || currentUser.email,
     customer_email: currentUser.email || "",
     items: items, total_yuan: total,
+    delivery_address: delivery.address, customer_phone: delivery.phone,
+    note: delivery.note || null, delivery_fee_yuan: fee,
     status: "pending", conversation_id: null
   }).select().single();
   if (oErr) throw oErr;
   const convId = await ensureConversation(shopId, s.ownerUid);
   await sb.from("orders").update({ conversation_id: convId }).eq("id", order.id);
+  const deliveryInfo = "📍 " + delivery.address + "\n📞 " + delivery.phone +
+    (delivery.note ? "\n📝 " + delivery.note : "");
   await sb.from("messages").insert({
     conversation_id: convId, sender_id: currentUser.id, sender_role: "customer",
     kind: "order", order_id: order.id, items: items, total_yuan: total,
-    body: ""
+    body: deliveryInfo
   });
   await sb.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", convId);
 }
@@ -654,9 +715,11 @@ async function mountChat(container, convId, title) {
         const items = (m.items || []).map(it =>
           "<div>" + esc(itemName(it)) +
           " × " + it.qty + " · " + money(it.price * it.qty) + "</div>").join("");
+        const dinfo = m.text
+          ? '<div class="delivery-info">' + esc(m.text).replace(/\n/g, "<br>") + "</div>" : "";
         inner = '<div class="order-card msg ' + (me ? "me" : "them") + '">' +
           '<div class="otitle">🧾 ' + esc(t("orderItems")) + " · " + money(m.total) + "</div>" +
-          items + '<span class="time">' + esc(fmtTime(m.createdAt)) + "</span></div>";
+          items + dinfo + '<span class="time">' + esc(fmtTime(m.createdAt)) + "</span></div>";
       } else {
         inner = '<div class="msg ' + (me ? "me" : "them") + '">' + esc(m.text || "") +
           '<span class="time">' + esc(fmtTime(m.createdAt)) + "</span></div></div>";
@@ -721,6 +784,13 @@ async function viewOrders() {
   } catch (e) {
     document.getElementById("olist").innerHTML = "⚠️ " + esc(e.message);
   }
+  // realtime: refresh the list whenever one of my orders changes status
+  const ch = sb.channel("my-orders-" + currentUser.id)
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "orders", filter: "customer_id=eq." + currentUser.id },
+      () => viewOrders())
+    .subscribe();
+  unsubs.push(ch);
 }
 function orderCard(o, shop, isVendor) {
   const items = (o.items || []).map(it =>
@@ -741,6 +811,12 @@ function orderCard(o, shop, isVendor) {
     '<span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span></div>" +
     '<div class="muted">' + esc(fmtTime(o.createdAt)) + "</div>" +
     '<div style="margin:6px 0">' + items + "</div>" +
+    ((o.deliveryAddress || o.customerPhone)
+      ? '<div class="delivery-info">📍 ' + esc(o.deliveryAddress || "") +
+        (o.customerPhone ? "<br>📞 " + esc(o.customerPhone) : "") +
+        (o.note ? "<br>📝 " + esc(o.note) : "") + "</div>" : "") +
+    (o.deliveryFee > 0
+      ? '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(o.deliveryFee) + "</b></div>" : "") +
     "<b>" + esc(t("total")) + ": " + money(o.total) + "</b>" +
     (btns ? '<div class="rowbtns">' + btns + "</div>" : "") + "</div>";
 }
@@ -810,6 +886,8 @@ function shopForm(s) {
     '<div class="field"><label>' + esc(t("address")) + " (中文)</label><input id=\"s-azh\" value=\"" + v("address_zh") + "\"></div>" +
     '<div class="field"><label>' + esc(t("address")) + " (မြန်မာ)</label><input id=\"s-amy\" value=\"" + v("address_my") + "\"></div>" +
     '<div class="field"><label>' + esc(t("phone")) + '</label><input id="s-phone" value="' + v("phone") + '"></div>' +
+    '<div class="field"><label>' + esc(t("wechatId")) + '</label><input id="s-wechat" value="' + v("wechatId") + '"></div>' +
+    '<div class="field"><label>' + esc(t("deliveryFeeYuan")) + '</label><input id="s-fee" type="number" min="0" step="1" value="' + esc(s.deliveryFee != null ? s.deliveryFee : 0) + '"></div>' +
     '<div class="field"><label>' + esc(t("allCategories")) + '</label><select id="s-cat">' +
     CATEGORIES.filter(c => c.id !== "all").map(c =>
       '<option value="' + c.id + '"' + (s.category === c.id ? " selected" : "") + ">" + esc(catName(c.id)) + "</option>").join("") +
@@ -825,6 +903,8 @@ async function saveShop() {
     address_zh: document.getElementById("s-azh").value.trim(),
     address_my: document.getElementById("s-amy").value.trim(),
     phone: document.getElementById("s-phone").value.trim(),
+    wechat_id: document.getElementById("s-wechat").value.trim() || null,
+    delivery_fee_yuan: Math.max(0, Number(document.getElementById("s-fee").value) || 0),
     category: document.getElementById("s-cat").value,
     emoji: (myShop && myShop.emoji) || "🍜",
     owner_id: currentUser.id,

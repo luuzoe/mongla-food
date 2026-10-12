@@ -191,3 +191,11 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
 }
 .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; margin: 14px 0; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+/* ---- delivery info block (order cards + chat order messages) ---- */
+.delivery-info {
+  background: #fff7e6; border: 1px solid #f5d9a0; border-radius: 10px;
+  padding: 8px 10px; margin: 8px 0; font-size: 14px; line-height: 1.6;
+  color: #6b4a00; font-weight: 600;
+}
+/* ---- copy-friendly text (e.g. WeChat ID) ---- */
+.copyable { user-select: all; -webkit-user-select: all; font-weight: 700; }
