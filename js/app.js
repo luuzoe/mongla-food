@@ -118,9 +118,34 @@ function toast(msg) {
   clearTimeout(window._toastT);
   window._toastT = setTimeout(() => ov.classList.remove("open"), 2200);
 }
+/* user preferences (localStorage): default address/phone + notification toggle */
+function getPref(k, dflt) {
+  try { const v = localStorage.getItem("mf_" + k); return v == null ? dflt : v; }
+  catch (e) { return dflt; }
+}
+function setPref(k, v) {
+  try { localStorage.setItem("mf_" + k, v); } catch (e) {}
+}
+/* notifyPing(msg): toast + soft beep for realtime events, honoring the notif toggle */
+let _ac = null;
+function beep() {
+  try {
+    _ac = _ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = _ac.createOscillator(), g = _ac.createGain();
+    o.connect(g); g.connect(_ac.destination);
+    o.frequency.value = 880; o.type = "sine";
+    g.gain.setValueAtTime(0.12, _ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, _ac.currentTime + 0.3);
+    o.start(); o.stop(_ac.currentTime + 0.3);
+  } catch (e) {}
+}
+function notifyPing(msg) {
+  if (getPref("notif", "1") !== "1") return;
+  if (msg) toast(msg);
+  beep();
+}
 /* confirmDlg(msg): in-site confirm dialog, resolves true/false. */
-function confirmDlg(msg) {
-  return new Promise((resolve) => {
+function confirmDlg(msg) {  return new Promise((resolve) => {
     const ov = ensureModal();
     clearTimeout(window._toastT);
     document.getElementById("modalMsg").textContent = msg;
@@ -424,7 +449,22 @@ function viewSettings() {
     langs.map(([id, label]) =>
       '<div class="lang-opt' + (LANG === id ? " active" : "") + '" onclick="setLang(\'' + id + "')\">" +
       "<span>" + label + "</span>" + (LANG === id ? "<span>✓</span>" : "") + "</div>"
-    ).join("") + "</div></div>";
+    ).join("") + "</div></div>" +
+    '<div class="card"><h3>📍 ' + esc(t("savedContact")) + "</h3>" +
+    '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><input id="s-addr" value="' + esc(getPref("addr", "")) + '"></div>' +
+    '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="s-phone" value="' + esc(getPref("phone", "")) + '"></div>' +
+    '<button class="btn" style="width:100%" onclick="savePrefs()">' + esc(t("save")) + "</button></div>" +
+    '<div class="card"><h3>🔔 ' + esc(t("notifTitle")) + "</h3>" +
+    '<div class="profile-row" style="align-items:center"><span>' + esc(t("notifDesc")) + "</span>" +
+    '<label class="switch"><input type="checkbox" id="s-notif"' + (getPref("notif", "1") === "1" ? " checked" : "") + ' onchange="toggleNotif()"><span class="slider"></span></label></div></div>';
+}
+function savePrefs() {
+  setPref("addr", (document.getElementById("s-addr").value || "").trim());
+  setPref("phone", (document.getElementById("s-phone").value || "").trim());
+  toast("✅");
+}
+function toggleNotif() {
+  setPref("notif", document.getElementById("s-notif").checked ? "1" : "0");
 }
 /* Help: short trilingual FAQ. */
 function viewHelp() {
@@ -799,8 +839,8 @@ async function viewCart() {
     "</div>";
   }
   html += '<div class="card"><h3>📍 ' + esc(t("deliveryAddress")) + "</h3>" +
-    '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><input id="co-addr"></div>' +
-    '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="co-phone" value="' + esc((userDoc && userDoc.phone) || "") + '"></div>' +
+    '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><input id="co-addr" value="' + esc(getPref("addr", "")) + '"></div>' +
+    '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="co-phone" value="' + esc((userDoc && userDoc.phone) || getPref("phone", "")) + '"></div>' +
     '<div class="field"><label>' + esc(t("orderNote")) + '</label><input id="co-note" placeholder="' + esc(t("notePlaceholder")) + '"></div></div>';
   html += '<div class="card">' +
     '<div class="profile-row"><span>' + esc(t("subtotal")) + "</span><b>" + money(cartTotal()) + "</b></div>" +
@@ -958,7 +998,12 @@ async function mountChat(container, convId, title) {
   const ch = sb.channel("chat-" + convId)
     .on("postgres_changes",
       { event: "INSERT", schema: "public", table: "messages", filter: "conversation_id=eq." + convId },
-      () => load())
+      (payload) => {
+        load();
+        const m = payload && payload.new;
+        if (m && m.sender_id !== currentUser.id)
+          notifyPing("💬 " + t("newMessage") + ": " + (m.body || "").slice(0, 40));
+      })
     .subscribe();
   unsubs.push(ch);
   const inp = document.getElementById("chat-in");
@@ -1007,7 +1052,10 @@ async function viewOrders() {
   const ch = sb.channel("my-orders-" + currentUser.id)
     .on("postgres_changes",
       { event: "*", schema: "public", table: "orders", filter: "customer_id=eq." + currentUser.id },
-      () => viewOrders())
+      (payload) => {
+        if (payload && payload.eventType === "UPDATE") notifyPing("📦 " + t("orderUpdated"));
+        viewOrders();
+      })
     .subscribe();
   unsubs.push(ch);
 }

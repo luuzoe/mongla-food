@@ -187,6 +187,13 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
   cursor: pointer;
 }
 .social-btn:disabled { opacity: .55; cursor: default; }
+/* toggle switch */
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider { position: absolute; inset: 0; background: #ccc; border-radius: 26px; transition: .2s; }
+.switch .slider:before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+.switch input:checked + .slider { background: var(--pink); }
+.switch input:checked + .slider:before { transform: translateX(20px); }
 .social-row { display: flex; gap: 8px; }
 .social-row .social-btn { margin-bottom: 0; padding: 9px 6px; font-size: 13px; }
 .social-row .social-btn .soon { font-size: 10px; padding: 1px 6px; }
