@@ -254,7 +254,6 @@ function renderHeader() {
     el.textContent = t(el.getAttribute("data-i18n"));
   });
   renderDrawer();
-  renderNav();
 }
 /* Side menu (top-left ☰): Profile, Settings, Help, Contact Us, Logout. */
 function openDrawer() {
@@ -1917,25 +1916,6 @@ async function delPost(postId) {
   } catch (e) { toast("⚠️ " + e.message); }
 }
 
-/* ---------- bottom nav (role-aware) ---------- */
-function renderNav() {
-  let nav = document.getElementById("mainnav");
-  if (!nav) {
-    nav = document.createElement("div");
-    nav.id = "mainnav";
-    nav.style.cssText = "display:flex;gap:8px;padding:8px 12px;max-width:720px;margin:0 auto;";
-    document.querySelector("header.topbar").after(nav);
-  }
-  const role = userDoc && userDoc.role;
-  let html = '<button class="btn small ghost" onclick="location.hash=\'#/\'">🏠 ' + esc(t("home")) + "</button>";
-  if (currentUser) html += '<button class="btn small ghost" onclick="location.hash=\'#/orders\'">📦 ' + esc(t("orders")) + "</button>";
-  if (role === "vendor" || role === "admin")
-    html += '<button class="btn small ghost" onclick="location.hash=\'#/vendor\'">🏪 ' + esc(t("vendorCenter")) + "</button>";
-  if (role === "admin")
-    html += '<button class="btn small ghost" onclick="location.hash=\'#/admin\'">🛠 ' + esc(t("adminPanel")) + "</button>";
-  nav.innerHTML = html;
-}
-
 /* Total unread across all my conversations (chat tab badge). */
 async function countTotalUnread() {
   try {
@@ -2020,9 +2000,11 @@ function renderTapbar() {
     tabs = [
       { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
       chatTab,
-      { ic: "🏪", label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" },
-      { ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" }
+      { ic: "🏪", label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" }
     ];
+    if (role === "admin")
+      tabs.push({ ic: "🛠", label: t("adminPanel"), hash: "#/admin", active: h === "#/admin" });
+    tabs.push({ ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" });
   } else {
     tabs = [
       { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
