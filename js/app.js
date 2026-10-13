@@ -2527,9 +2527,9 @@ async function viewAdmin() {
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
     const list = (data || []).map(mapShop);
     box.innerHTML =
-      '<div class="card"><div class="rowbtns">' +
+      '<div class="card"><div class="rowbtns" style="justify-content:space-between">' +
       '<button class="btn small" onclick="importSamples()">📥 ' + esc(t("loadSamples")) + "</button>" +
-      '<button class="btn small gray" onclick="deleteSamples()">🗑 ' + esc(t("deleteSamples")) + "</button>" +
+      '<button class="btn small gray" style="opacity:0.7" onclick="deleteSamples()">🗑 ' + esc(t("deleteSamples")) + "</button>" +
       "</div></div>" +
       list.map(s => '<div class="card"><b>' + esc(shopName(s)) + "</b>" +
         (s.sample ? '<span class="badge">' + esc(t("sampleBadge")) + "</span>" : "") +
