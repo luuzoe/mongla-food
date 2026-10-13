@@ -304,7 +304,7 @@ function renderAll() {
   if (h === "#/orders") return viewOrders();
   if (h.startsWith("#/chat/")) { const cid = h.split("/")[2]; return viewChatPage(cid); }
   if (h === "#/chats") return viewChats();
-  if (h === "#/vendor/orders") { vendorTab = "orders"; return viewVendor(); }
+  if (h === "#/vendor/orders") return viewVendorOrdersPage();
   if (h === "#/vendor") return viewVendor();
   if (h === "#/admin") return viewAdmin();
   if (h === "#/profile") return viewProfile();
@@ -1479,6 +1479,13 @@ async function cancelMyOrder(orderId) {
 
 /* ---------- vendor dashboard ---------- */
 let myShop = null;
+/* Standalone vendor orders page (tap-bar 📦): orders only, no center header. */
+async function viewVendorOrdersPage() {
+  const app = document.getElementById("app");
+  app.innerHTML = '<h2>📦 ' + esc(t("tabOrders")) + '</h2><div id="vtab"></div>';
+  await drawVendorOrders();
+}
+
 async function viewVendor() {
   if (needLogin()) return;
   const app = document.getElementById("app");
