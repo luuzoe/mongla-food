@@ -241,6 +241,7 @@ async function handleSession(session) {
     if (typeof _gcCh !== "undefined" && _gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} }
     if (typeof _gcCh !== "undefined") _gcCh = null;
     if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
+    if (window._goCh) { try { sb.removeChannel(window._goCh); } catch (e) {} window._goCh = null; }
     window._totalUnread = 0; window._tuAt = 0; window._chatsLastMsg = {};
   }
   if (currentUser) {
@@ -264,8 +265,10 @@ async function handleSession(session) {
       } else {
         // First login via OAuth (e.g. Google): create the profile row.
         // (Email signups insert their own row in doCreateAccount.)
+        let oauthRole = "customer";
+        try { oauthRole = localStorage.getItem("mf_oauth_role") || "customer"; localStorage.removeItem("mf_oauth_role"); } catch (e) {}
         const { error: insErr } = await sb.from("users").insert({
-          id: currentUser.id, role: "customer",
+          id: currentUser.id, role: oauthRole,
           first_name: "", last_name: "",
           email: currentUser.email || "", phone: ""
         });
@@ -441,7 +444,20 @@ function viewProfile() {
     '<button class="social-btn" disabled>💬 ' + esc(t("wechatSignIn")) + ' <span class="soon">' + esc(t("comingSoon")) + "</span></button>" +
     '<button class="social-btn" disabled>📘 ' + esc(t("facebookSignIn")) + ' <span class="soon">' + esc(t("comingSoon")) + "</span></button></div></div>";
 }
-function setRegRole(r) { regRole = r; viewProfile(); }
+function setRegRole(r) {
+  // preserve typed inputs across the re-render
+  const keep = {};
+  ["r-name", "r-contact", "r-pass", "r-owner", "r-phone"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) keep[id] = el.value;
+  });
+  regRole = r;
+  viewProfile();
+  Object.keys(keep).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = keep[id];
+  });
+}
 function setAuthMode(m) { authMode = m; viewProfile(); }
 async function doLogin() {
   const contact = document.getElementById("l-contact").value.trim();
@@ -531,13 +547,14 @@ async function doCreateAccount() {
 async function doGoogleLogin() {
   const errBox = document.getElementById("auth-err");
   try {
+    try { localStorage.setItem("mf_oauth_role", regRole || "customer"); } catch (e) {}
     const { error } = await sb.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin + window.location.pathname }
     });
     if (error) throw error;
     // Browser redirects to Google; on return, handleSession() creates the
-    // users row (role: customer) if this is the first login.
+    // users row (role from mf_oauth_role) if this is the first login.
   } catch (e) { if (errBox) errBox.textContent = "⚠️ " + (e.message || e); }
 }
 function editProfileName() {
@@ -779,10 +796,10 @@ async function drawFeed() {
   if (!box) return;
   try {
     const { data, error } = await sb.from("posts")
-      .select("*, shops(name_zh, name_my, name_en)")
-      .order("created_at", { ascending: false }).limit(10);
+      .select("*, shops(name_zh, name_my, name_en, approved)")
+      .order("created_at", { ascending: false }).limit(20);
     if (error) throw error;
-    const list = (data || []).map(r => {
+    const list = (data || []).filter(r => !r.shops || r.shops.approved !== false).slice(0, 10).map(r => {
       const p = mapPost(r);
       if (r.shops) { p.shopName = shopName(r.shops); regPost(p.shopId, r.shops, p); }
       return p;
@@ -968,10 +985,11 @@ async function drawMenuTab(id, s) {
     const inCart = cart.items[key] ? cart.items[key].qty : 0;
     return '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + ' <span data-rp="' + it.id + '"></span></div>' +
       '<div class="pr">' + money(it.price) + "</div></div>" +
+      (s.isOpen === false ? '<div class="muted" style="font-size:12px">🔴</div>' :
       '<div class="qty-ctrl">' +
       (inCart > 0 ? '<button onclick="cartQty(\'' + id + "','" + it.id + "',-1)\">−</button><b>" + inCart + "</b>" : "") +
       '<button onclick="cartQty(\'' + id + "','" + it.id + "',1)\">＋</button>" +
-      "</div></div>";
+      "</div>") + "</div>";
   }).join("") + "</div>";
   renderCartBar();
   loadRateBadges(body);
@@ -1099,7 +1117,9 @@ function cartViewDelta(key, delta) {
   const saved = addrEl ? {
     a: addrEl.value,
     p: document.getElementById("co-phone").value,
-    n: document.getElementById("co-note").value
+    n: document.getElementById("co-note").value,
+    pm: (document.getElementById("co-paymethod") || {}).value || "cod",
+    tx: (document.getElementById("co-txn") || {}).value || ""
   } : null;
   cur.qty += delta;
   if (cur.qty <= 0) delete cart.items[key];
@@ -1110,6 +1130,10 @@ function cartViewDelta(key, delta) {
         a2.value = saved.a;
         document.getElementById("co-phone").value = saved.p;
         document.getElementById("co-note").value = saved.n;
+        const pm2 = document.getElementById("co-paymethod");
+        if (pm2) { pm2.value = saved.pm; pm2.dispatchEvent(new Event("change")); }
+        const tx2 = document.getElementById("co-txn");
+        if (tx2) tx2.value = saved.tx;
       }
     }
   });
@@ -1126,16 +1150,34 @@ async function checkoutAll() {
   const payMethod = (document.getElementById("co-paymethod") || {}).value || "cod";
   const payTxn = ((document.getElementById("co-txn") || {}).value || "").trim();
   if (!addr || !phone) { toast("⚠️ " + t("fillAddressPhone")); return; }
+  // verify all shops are open
+  for (const sid of shopIds) {
+    let sh = shopCache[sid] || (window._shops || []).find(s => s.id === sid);
+    if (!sh) {
+      try {
+        const { data } = await sb.from("shops").select("id,is_open,name_zh,name_my,name_en").eq("id", sid).single();
+        if (data) { sh = mapShop(data); shopCache[sid] = sh; }
+      } catch (e) {}
+    }
+    if (sh && sh.isOpen === false) { toast("⚠️ " + shopName(sh) + ": " + t("shopClosed")); return; }
+  }
   // validate shop has the selected mobile payment number
   if (payMethod === "wavepay" || payMethod === "kbzpay") {
     for (const sid of shopIds) {
-      const sh = (window._shops || []).find(s => s.id === sid);
+      let sh = (window._shops || []).find(s => s.id === sid) || shopCache[sid];
+      if (!sh) {
+        try {
+          const { data } = await sb.from("shops").select("id,name_zh,name_my,name_en,wavepay_number,kbzpay_number").eq("id", sid).single();
+          if (data) { sh = mapShop(data); shopCache[sid] = sh; }
+        } catch (e) {}
+      }
       const num = payMethod === "wavepay" ? (sh && sh.wavepay) : (sh && sh.kbzpay);
       if (!num) { toast("⚠️ " + (sh ? shopName(sh) : "") + ": " + t("noPayNumber")); return; }
     }
     if (!payTxn) { toast("⚠️ " + t("fillTxn")); return; }
   }
   if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) return;
+  const succeeded = [];
   try {
     for (const sid of shopIds) {
       const items = groups[sid].map(it => ({
@@ -1143,12 +1185,21 @@ async function checkoutAll() {
         price: it.price, qty: it.qty
       }));
       await placeShopOrder(sid, items, { address: addr, phone: phone, note: note, payMethod: payMethod, payTxn: payTxn });
+      succeeded.push(sid);
     }
     cart = { items: {} };
     cartFees = {};
-    toast("✅ " + t("orderSent"));
+    prettyToast("✅", t("orderSent"), "green");
     location.hash = "#/orders";
-  } catch (e) { toast("⚠️ " + e.message); }
+  } catch (e) {
+    // remove only succeeded shops from cart, keep failed ones for retry
+    succeeded.forEach(sid => {
+      Object.keys(cart.items).forEach(k => {
+        if (cart.items[k] && cart.items[k].shopId === sid) delete cart.items[k];
+      });
+    });
+    toast("⚠️ " + e.message + (succeeded.length ? " (" + t("partialOrder") + ": " + succeeded.length + ")" : ""));
+  }
 }
 /* Create one order + drop the item list as a message into the vendor's chatbox. */
 async function placeShopOrder(shopId, items, delivery) {
@@ -1640,6 +1691,7 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "pending") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','accepted')\">" + esc(t("acceptOrder")) + "</button>";
     if (o.status === "accepted") btns += '<button class="btn small" onclick="setStatus(\'' + o.id + "','" + o.convId + "','ready')\">" + esc(t("markReady")) + "</button>";
     if (o.status === "delivering") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','done')\">" + esc(t("completeOrder")) + "</button>";
+    if (o.status === "ready") btns += '<button class="btn small" onclick="setStatus(\'' + o.id + "','" + o.convId + "','delivering')\">" + esc(t("markDelivering")) + "</button>";
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
     if (o.status === "done" || o.status === "cancelled")
@@ -1695,12 +1747,14 @@ async function setStatus(orderId, convId, status) {
   try {
     const { error } = await sb.from("orders").update({ status: status }).eq("id", orderId);
     if (error) throw error;
-    if (convId) {
-      await sb.from("messages").insert({
-        conversation_id: convId, sender_id: currentUser.id,
-        sender_role: (userDoc && userDoc.role) || "vendor",
-        kind: "text", body: "📦 " + t("status_" + status)
-      });
+    if (convId && convId !== "null" && convId !== "undefined") {
+      try {
+        await sb.from("messages").insert({
+          conversation_id: convId, sender_id: currentUser.id,
+          sender_role: (userDoc && userDoc.role) || "vendor",
+          kind: "text", body: "📦 " + t("status_" + status)
+        });
+      } catch (e) {}
     }
     renderAll();
   } catch (e) { toast("⚠️ " + e.message); }
@@ -2160,8 +2214,9 @@ async function renderChatList() {
   });
   return list.map(c => c.id);
 }
-async function drawVendorOrders() {
+async function drawVendorOrders(skipChannel) {
   const box = document.getElementById("vtab");
+  if (!box) return;
   // auto-cancel stale pending orders (>30 min, vendor never responded)
   try {
     const cutoff = new Date(Date.now() - 30 * 60000).toISOString();
@@ -2169,6 +2224,7 @@ async function drawVendorOrders() {
       .eq("vendor_id", currentUser.id).eq("status", "pending").lt("created_at", cutoff);
   } catch (e) {}
   // realtime first: vendor hears about new orders even with an empty list
+  if (!skipChannel) {
   try {
     const ch = sb.channel("vendor-orders-" + currentUser.id + "-" + Date.now())
       .on("postgres_changes",
@@ -2178,11 +2234,12 @@ async function drawVendorOrders() {
           if (payload && payload.eventType === "UPDATE" && payload.new && payload.new.status === "cancelled")
             notifyPing("⚠️ " + t("orderCancelled"));
           refreshOrderBadge(true);
-          stopListeners(); drawVendorOrders();
+          drawVendorOrders(true);
         })
       .subscribe();
     unsubs.push(ch);
   } catch (e) {}
+  }
   box.innerHTML = '<div class="center muted">…</div>';
   const { data, error } = await sb.from("orders").select("*")
     .eq("vendor_id", currentUser.id).eq("vendor_archived", false).order("created_at", { ascending: false });
@@ -2192,7 +2249,7 @@ async function drawVendorOrders() {
   // sales summary
   const doneOrders = list.filter(o => o.status === "done");
   const totalSales = doneOrders.reduce((a, o) => a + (o.total || 0), 0);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Yangon" });
   const todaySales = doneOrders.filter(o => (o.createdAt || "").slice(0, 10) === todayStr)
     .reduce((a, o) => a + (o.total || 0), 0);
   const salesHtml = '<div class="card" style="background:#e8f5e9;text-align:center">' +
@@ -2374,6 +2431,7 @@ function ensureGlobalOrderWatch() {
     .subscribe();
   ch._uid = uid;
   _goCh = ch;
+  window._goCh = ch;
   ensureDriverOrderWatch();
 }
 /* Driver: ping when a new "ready" order appears (vendor just marked ready). */
@@ -2416,6 +2474,10 @@ async function refreshOrderBadge(force) {
     if (role === "vendor" || role === "admin") {
       const r = await sb.from("orders").select("id", { count: "exact", head: true })
         .eq("vendor_id", currentUser.id).eq("status", "pending");
+      n = r.count || 0;
+    } else if (role === "driver") {
+      const r = await sb.from("orders").select("id", { count: "exact", head: true })
+        .eq("status", "ready").is("driver_id", null);
       n = r.count || 0;
     } else {
       const r = await sb.from("orders").select("id,status").eq("customer_id", currentUser.id);
@@ -2514,7 +2576,7 @@ function renderTapbar() {
   let tabs;
   if (isD) {
     tabs = [
-      { ic: ICONS.box, label: t("deliveries"), hash: "#/driver", active: h === "#/driver" || !h.startsWith("#/") },
+      { ic: ICONS.box, label: t("deliveries"), hash: "#/driver", active: h === "#/driver" || !h.startsWith("#/"), badge: window._newOrderCount || 0 },
       { ic: ICONS.user, label: t("profile"), hash: "#/profile", active: h === "#/profile" }
     ];
   } else if (isV) {
@@ -2555,19 +2617,20 @@ async function viewDriver() {
   if (needLogin()) return;
   const app = document.getElementById("app");
   if (!userDoc || userDoc.role !== "driver") {
-    app.innerHTML = '<div class="notice">' + esc(t("loginFirst")) + "</div>";
+    app.innerHTML = '<div class="notice">' + esc(t(!userDoc ? "loginFirst" : "driverOnly")) + "</div>";
     return;
   }
   if (!userDoc.driverApproved) {
     app.innerHTML = '<div class="notice">' + esc(t("driverPending")) + "</div>";
     return;
   }
+  const dt = window._driverTab || 0;
   app.innerHTML = "<h2>" + esc(t("deliveries")) + '</h2><div class="tabs">' +
-    '<div class="tab active" id="dtab-avail" onclick="setDriverTab(0)">' + esc(t("availableOrders")) + "</div>" +
-    '<div class="tab" id="dtab-mine" onclick="setDriverTab(1)">' + esc(t("myDeliveries")) + "</div>" +
-    '<div class="tab" id="dtab-hist" onclick="setDriverTab(2)">' + esc(t("history")) + "</div>" +
+    '<div class="tab' + (dt === 0 ? " active" : "") + '" id="dtab-avail" onclick="setDriverTab(0)">' + esc(t("availableOrders")) + "</div>" +
+    '<div class="tab' + (dt === 1 ? " active" : "") + '" id="dtab-mine" onclick="setDriverTab(1)">' + esc(t("myDeliveries")) + "</div>" +
+    '<div class="tab' + (dt === 2 ? " active" : "") + '" id="dtab-hist" onclick="setDriverTab(2)">' + esc(t("history")) + "</div>" +
     '</div><div id="dbody"><div class="center muted">…</div></div>';
-  drawDriverTab(window._driverTab || 0);
+  drawDriverTab(dt);
 }
 function setDriverTab(i) {
   window._driverTab = i;
@@ -2634,7 +2697,7 @@ async function drawDriverTab(i) {
   } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message) + "</div>"; }
 }
 async function acceptDelivery(orderId) {
-  const { data, error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null).select("id");
+  const { data, error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null).eq("status", "ready").select("id");
   if (error) { toast("⚠️ " + error.message); return; }
   if (!data || !data.length) { toast("⚠️ " + t("alreadyTaken")); drawDriverTab(0); return; }
   prettyToast("✅", t("done"), "green"); setDriverTab(1);
