@@ -94,7 +94,12 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 90px; }
 .msg .time { display: block; font-size: 10px; opacity: .7; margin-top: 3px; }
 .order-card { background: #fff8e1; border: 1px solid #ffe082; color: #222; }
 .order-card .otitle { font-weight: 700; color: #a35400; margin-bottom: 4px; }
-.chat-input { display: flex; gap: 8px; margin-top: 8px; }
+.chat-input { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+.icon-btn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px; flex-shrink: 0; }
+.send-btn { background: var(--pink); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 17px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.msg.media { padding: 4px; }
+.msg.media img, .msg.media video { max-width: 220px; border-radius: 10px; display: block; }
+.msg.media img { cursor: pointer; }
 .chat-input input { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; }
 /* forms */
 .field { margin-bottom: 10px; }

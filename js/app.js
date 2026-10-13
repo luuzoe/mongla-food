@@ -53,7 +53,8 @@ function mapMsg(r) {
   return {
     id: r.id, conversation_id: r.conversation_id, senderUid: r.sender_id,
     senderRole: r.sender_role, type: r.kind, text: r.body, items: r.items,
-    total: Number(r.total_yuan) || 0, orderId: r.order_id, createdAt: r.created_at
+    total: Number(r.total_yuan) || 0, orderId: r.order_id, createdAt: r.created_at,
+    mediaUrl: r.media_url || ""
   };
 }
 function mapOrder(r) {
@@ -962,8 +963,11 @@ async function mountChat(container, convId, title) {
   container.innerHTML =
     '<div class="card"><h3>💬 ' + esc(title || "") + "</h3>" +
     '<div class="chatbox"><div class="msgs" id="msgs"></div>' +
-    '<div class="chat-input"><input id="chat-in" placeholder="' + esc(t("typeMessage")) + '">' +
-    '<button class="btn" onclick="sendMsg(\'' + convId + "')\">" + esc(t("send")) + "</button></div>" +
+    '<div class="chat-input">' +
+    '<button class="icon-btn" id="chat-attach">📎</button>' +
+    '<input id="chat-file" type="file" accept="image/*,video/*" style="display:none">' +
+    '<input id="chat-in" placeholder="' + esc(t("typeMessage")) + '">' +
+    '<button class="send-btn" id="chat-send">➤</button></div>' +
     "</div></div>";
   const box = document.getElementById("msgs");
   const render = (rows) => {
@@ -979,6 +983,14 @@ async function mountChat(container, convId, title) {
         inner = '<div class="order-card msg ' + (me ? "me" : "them") + '">' +
           '<div class="otitle">🧾 ' + esc(t("orderItems")) + " · " + money(m.total) + "</div>" +
           items + dinfo + '<span class="time">' + esc(fmtTime(m.createdAt)) + "</span></div>";
+      } else if (m.type === "image" && m.mediaUrl) {
+        inner = '<div class="msg media ' + (me ? "me" : "them") + '">' +
+          '<img src="' + esc(m.mediaUrl) + '" alt="" loading="lazy">' +
+          '<span class="time">' + esc(fmtTime(m.createdAt)) + "</span></div>";
+      } else if (m.type === "video" && m.mediaUrl) {
+        inner = '<div class="msg media ' + (me ? "me" : "them") + '">' +
+          '<video src="' + esc(m.mediaUrl) + '" controls playsinline preload="metadata"></video>' +
+          '<span class="time">' + esc(fmtTime(m.createdAt)) + "</span></div>";
       } else {
         inner = '<div class="msg ' + (me ? "me" : "them") + '">' + esc(m.text || "") +
           '<span class="time">' + esc(fmtTime(m.createdAt)) + "</span></div></div>";
@@ -1001,13 +1013,20 @@ async function mountChat(container, convId, title) {
       (payload) => {
         load();
         const m = payload && payload.new;
-        if (m && m.sender_id !== currentUser.id)
-          notifyPing("💬 " + t("newMessage") + ": " + (m.body || "").slice(0, 40));
+        if (m && m.sender_id !== currentUser.id) {
+            const preview = m.kind === "image" ? "📷 " + t("photoSent")
+              : m.kind === "video" ? "🎥 " + t("videoSent")
+              : (m.body || "").slice(0, 40);
+            notifyPing("💬 " + t("newMessage") + ": " + preview);
+          }
       })
     .subscribe();
   unsubs.push(ch);
   const inp = document.getElementById("chat-in");
   inp.addEventListener("keydown", e => { if (e.key === "Enter") sendMsg(convId); });
+  document.getElementById("chat-attach").onclick = () => document.getElementById("chat-file").click();
+  document.getElementById("chat-file").onchange = () => sendMedia(convId);
+  document.getElementById("chat-send").onclick = () => sendMsg(convId);
 }
 async function sendMsg(convId) {
   const inp = document.getElementById("chat-in");
@@ -1023,6 +1042,32 @@ async function sendMsg(convId) {
     if (error) throw error;
     await sb.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", convId);
   } catch (e) { toast("⚠️ " + e.message); }
+}
+
+async function sendMedia(convId) {
+  const inp = document.getElementById("chat-file");
+  const file = inp && inp.files && inp.files[0];
+  if (inp) inp.value = "";
+  if (!file) return;
+  const isImg = file.type.startsWith("image/");
+  const isVid = file.type.startsWith("video/");
+  if (!isImg && !isVid) { toast("\u26A0\uFE0F " + t("mediaOnly")); return; }
+  if (file.size > 20 * 1024 * 1024) { toast("\u26A0\uFE0F " + t("mediaTooBig")); return; }
+  try {
+    toast("\u23F3 " + t("uploadingPhoto"));
+    const ext = ((file.name.split(".").pop() || (isImg ? "jpg" : "mp4")).toLowerCase().replace(/[^a-z0-9]/g, "")) || (isImg ? "jpg" : "mp4");
+    const path = convId + "/" + Date.now() + "." + ext;
+    const { error: upErr } = await sb.storage.from("chat-media").upload(path, file, { contentType: file.type });
+    if (upErr) throw upErr;
+    const url = sb.storage.from("chat-media").getPublicUrl(path).data.publicUrl;
+    const { error } = await sb.from("messages").insert({
+      conversation_id: convId, sender_id: currentUser.id,
+      sender_role: (userDoc && userDoc.role) || "customer",
+      kind: isImg ? "image" : "video", body: "", media_url: url
+    });
+    if (error) throw error;
+    await sb.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", convId);
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
 }
 
 /* ---------- customer orders ---------- */
