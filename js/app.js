@@ -2094,7 +2094,6 @@ function renderTapbar() {
     ];
     if (currentUser) tabs.push({ ic: "📦", label: t("orders"), hash: "#/orders", active: h === "#/orders" });
     tabs.push(chatTab);
-    tabs.push({ ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" });
   }
   refreshTotalUnread(false);
   bar.innerHTML = tabs.map(tb =>
