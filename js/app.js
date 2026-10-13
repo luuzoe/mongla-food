@@ -888,7 +888,7 @@ async function viewShop(id) {
     '<div class="profile-row"><span class="k">' + esc(t("ownerName")) + "</span><span>" + esc(s.ownerName || "-") + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("address")) + "</span><span>" + esc(addr) + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("phone")) + "</span><span><a href=\"tel:" + esc(s.phone || "") + "\">" + esc(s.phone || "-") + "</a></span></div>" +
-    (currentUser ? '<div class="profile-row"><span class="k">🚩</span><span><a href="javascript:void(0)" id="shop-report" style="color:var(--pink)">' + esc(t("report")) + '</a></span></div>' : "") +
+    (currentUser ? '<div class="profile-row"><span class="k"><span class="tic">' + ICONS.flag + '</span></span><span><a href="javascript:void(0)" id="shop-report" style="color:var(--pink)">' + esc(t("report")) + '</a></span></div>' : "") +
     (s.wechatId ? '<div class="profile-row"><span class="k">' + esc(t("wechatId")) + '</span><span class="copyable">' + esc(s.wechatId) + "</span></div>" : "") +
     (s.deliveryFee > 0 ? '<div class="profile-row"><span class="k">🛵 ' + esc(t("deliveryFee")) + "</span><span>" + money(s.deliveryFee) + "</span></div>" : "") +
     "</div>" +
@@ -1839,7 +1839,7 @@ async function viewChatPage(convId) {
     page.innerHTML =
       '<div class="chead"><button class="back" id="chat-back">‹</button>' +
       avatarHtml + '<div class="who" style="flex:1">' + esc(nm) + "</div>" +
-      '<button class="btn small gray" id="chat-report">🚩</button>' + "</div>" +
+      '<button class="btn small gray" id="chat-report" style="padding:6px 8px"><span class="tic">' + ICONS.flag + '</span></button>' + "</div>" +
       '<div id="chat-page-body" style="display:flex;flex-direction:column;flex:1;min-height:0"></div>';
     document.getElementById("chat-back").onclick = () => { location.hash = "#/chats"; };
     document.getElementById("chat-report").onclick = () => openReport(conv.customer_id === currentUser.id ? conv.vendor_id : conv.customer_id);
