@@ -137,6 +137,9 @@ h3 { font-size: 16px; margin: 8px 0; }
 /* PLACEHOLDER: dish photos are decorative gradients + emoji for now.
    Real shops will replace them with uploaded food photos via the `photoUrl`
    field on each menu item (see dishPhotoHTML in js/app.js). */
+.dish-photo-wrap { position: relative; }
+.fav-star { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,.88); border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 18px; line-height: 1; cursor: pointer; color: #c0c0c0; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.fav-star.on { color: #f5a623; }
 .dish-photo { aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; font-size: 44px; }
 .dish-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .dish-photo.ph-all      { background: linear-gradient(135deg, #fce4ec, #f8bbd0); }

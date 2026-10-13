@@ -140,6 +140,18 @@ function beep() {
     o.start(); o.stop(_ac.currentTime + 0.3);
   } catch (e) {}
 }
+/* favourites: star on dish cards, favourited dishes sort first (localStorage) */
+function getFavs() {
+  try { return JSON.parse(getPref("favs", "[]")) || []; } catch (e) { return []; }
+}
+function isFav(key) { return getFavs().indexOf(key) >= 0; }
+function toggleFav(key) {
+  const f = getFavs();
+  const i = f.indexOf(key);
+  if (i >= 0) f.splice(i, 1); else f.push(key);
+  setPref("favs", JSON.stringify(f));
+  drawDishGrid();
+}
 function notifyPing(msg) {
   if (getPref("notif", "1") !== "1") return;
   if (msg) toast(msg);
@@ -578,13 +590,16 @@ function drawDishGrid() {
     if (!q) return true;
     return ((d.name_zh || "") + " " + (d.name_my || "") + " " + (d.shop_zh || "") + " " + (d.shop_my || "")).toLowerCase().includes(q);
   });
+  const favs = getFavs();
+  list.sort((a, b) => ((favs.indexOf(b.key) >= 0) ? 1 : 0) - ((favs.indexOf(a.key) >= 0) ? 1 : 0));
   if (!list.length) { box.innerHTML = '<div class="card center muted">' + esc(t("noDishes")) + "</div>"; return; }
   box.innerHTML = list.map(d => {
     const inCart = cart.items[d.key] ? cart.items[d.key].qty : 0;
     const nm = itemName(d);
     const nm2 = LANG === "zh" ? (d.name_my || "") : (d.name_zh || "");
     const shopLabel = LANG === "en" ? (d.shop_en || d.shop_zh) : (LANG === "my" ? (d.shop_my || d.shop_zh) : d.shop_zh);
-    return '<div class="dish-card">' + dishPhotoHTML(d) +
+    return '<div class="dish-card"><div class="dish-photo-wrap">' + dishPhotoHTML(d) +
+      '<button class="fav-star' + (isFav(d.key) ? ' on' : '') + '" onclick="toggleFav(\'' + d.key + '\')">' + (isFav(d.key) ? '\u2605' : '\u2606') + '</button></div>' +
       '<div class="dish-body">' +
       '<div class="dish-name">' + esc(nm) + "</div>" +
       (nm2 ? '<div class="dish-name2">' + esc(nm2) + "</div>" : "") +
