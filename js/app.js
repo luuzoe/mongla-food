@@ -1446,10 +1446,15 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "done")
       btns += '<button class="btn small" data-rateorder="' + o.id + '">⭐ ' + esc(t("rateIt")) + "</button>";
   }
-  return '<div class="card order-card2"><div style="display:flex;justify-content:space-between;align-items:center">' +
-    "<b>" + esc(shop ? shopName(shop) : o.shopId) + "</b>" +
-    '<span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span></div>" +
-    '<div class="muted">' + esc(fmtTime(o.createdAt)) + "</div>" +
+  const itemCount = (o.items || []).reduce((a, it) => a + (it.qty || 0), 0);
+  const isOpen = (window._openOrders || {}).has ? window._openOrders.has(o.id) : false;
+  return '<div class="card order-card2' + (isOpen ? " open" : "") + '" data-oid="' + o.id + '">' +
+    '<div class="oc-head" onclick="toggleOrderCard(this)">' +
+    '<div style="flex:1;min-width:0"><b>' + esc(shop ? shopName(shop) : o.shopId) + "</b>" +
+    '<div class="muted">' + esc(fmtTime(o.createdAt)) + " · " + itemCount + " · " + money(o.total) + "</div></div>" +
+    '<span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span>" +
+    '<span class="oc-chev">\u25BC</span></div>' +
+    '<div class="oc-details">' +
     '<div style="margin:6px 0">' + items + "</div>" +
     ((o.deliveryAddress || o.customerPhone)
       ? '<div class="delivery-info">📍 ' + esc(o.deliveryAddress || "") +
@@ -1459,7 +1464,15 @@ function orderCard(o, shop, isVendor) {
       ? '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(o.deliveryFee) + "</b></div>" : "") +
     "<b>" + esc(t("total")) + ": " + money(o.total) + "</b>" +
     (btns ? '<div class="rowbtns">' + btns + "</div>" : "") +
-    (isVendor ? "" : '<div id="oc-' + o.id + '" style="margin-top:8px"></div>') + "</div>";
+    (isVendor ? "" : '<div id="oc-' + o.id + '" style="margin-top:8px"></div>') + "</div></div>";
+}
+function toggleOrderCard(headEl) {
+  const card = headEl && headEl.closest ? headEl.closest(".order-card2") : null;
+  if (!card) return;
+  const oid = card.getAttribute("data-oid");
+  window._openOrders = window._openOrders || new Set();
+  if (window._openOrders.has(oid)) { window._openOrders.delete(oid); card.classList.remove("open"); }
+  else { window._openOrders.add(oid); card.classList.add("open"); }
 }
 async function setStatus(orderId, convId, status) {
   try {

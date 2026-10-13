@@ -310,3 +310,11 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
 .chat-page .card > h3 { display: none; }
 .chat-page .chatbox { flex: 1; height: auto; min-height: 0; }
 .dish-card{cursor:pointer}
+
+/* collapsible order cards */
+.order-card2 .oc-head{display:flex;align-items:center;gap:8px;cursor:pointer}
+.order-card2 .oc-head .muted{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.order-card2 .oc-details{display:none}
+.order-card2.open .oc-details{display:block}
+.order-card2 .oc-chev{color:var(--muted);font-size:12px;transition:transform .2s;flex-shrink:0}
+.order-card2.open .oc-chev{transform:rotate(180deg)}
