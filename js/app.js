@@ -19,7 +19,7 @@ let adminTab = "shops";
 function mapUser(r) {
   if (!r) return null;
   const nm = ((r.first_name || "") + " " + (r.last_name || "")).trim();
-  return { id: r.id, role: r.role, name: nm || r.email || "", first_name: r.first_name, last_name: r.last_name, email: r.email, phone: r.phone, avatarUrl: r.avatar_url || "", banned: !!r.banned };
+  return { id: r.id, role: r.role, name: nm || r.email || "", first_name: r.first_name, last_name: r.last_name, email: r.email, phone: r.phone, avatarUrl: r.avatar_url || "", banned: !!r.banned, driverApproved: !!r.driver_approved };
 }
 function mapShop(r) {
   if (!r) return r;
@@ -28,7 +28,7 @@ function mapShop(r) {
     ownerName: r.owner_name, address_zh: r.address_zh, address_my: r.address_my,
     phone: r.phone, category: r.category, emoji: r.emoji, sample: r.sample,
     deliveryFee: Number(r.delivery_fee_yuan) || 0, wechatId: r.wechat_id || "",
-    photo_url: r.photo_url || null, approved: r.approved !== false,
+    photo_url: r.photo_url || null, approved: r.approved !== false, wavepay: r.wavepay_number || "", kbzpay: r.kbzpay_number || "",
     ownerUid: r.owner_id, createdAt: r.created_at
   };
 }
@@ -67,7 +67,7 @@ function mapOrder(r) {
     deliveryAddress: r.delivery_address || "", customerPhone: r.customer_phone || "",
     note: r.note || "", deliveryFee: Number(r.delivery_fee_yuan) || 0,
     convId: r.conversation_id, customerName: r.customer_name,
-    customerEmail: r.customer_email, createdAt: r.created_at
+    customerEmail: r.customer_email, createdAt: r.created_at, payMethod: r.payment_method || "cod", payTxn: r.payment_txn || ""
   };
 }
 function mapPost(r) {
@@ -320,6 +320,7 @@ function renderAll() {
   if (h.startsWith("#/chat/")) { const cid = h.split("/")[2]; return viewChatPage(cid); }
   if (h === "#/chats") return viewChats();
   if (h === "#/vendor/orders") return viewVendorOrdersPage();
+  if (h === "#/driver") return viewDriver();
   if (h === "#/vendor") return viewVendor();
   if (h === "#/admin") return viewAdmin();
   if (h === "#/profile") return viewProfile();
@@ -395,6 +396,7 @@ function viewProfile() {
       : '<div class="field"><div class="role-pick">' +
         '<div class="tab' + (regRole === "customer" ? " active" : "") + '" onclick="setRegRole(\'customer\')">' + esc(t("iAmCustomer")) + "</div>" +
         '<div class="tab' + (regRole === "vendor" ? " active" : "") + '" onclick="setRegRole(\'vendor\')">' + esc(t("iAmVendor")) + "</div>" +
+        '<div class="tab' + (regRole === "driver" ? " active" : "") + '" onclick="setRegRole(\'driver\')">' + esc(t("iAmDriver")) + "</div>" +
         "</div></div>" +
         (regRole === "vendor"
           ? '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="f-shopname"></div>' +
@@ -1003,12 +1005,44 @@ async function viewCart() {
     '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><input id="co-addr" value="' + esc(getPref("addr", "")) + '"></div>' +
     '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="co-phone" value="' + esc((userDoc && userDoc.phone) || getPref("phone", "")) + '"></div>' +
     '<div class="field"><label>' + esc(t("orderNote")) + '</label><input id="co-note" placeholder="' + esc(t("notePlaceholder")) + '"></div></div>';
+  html += '<div class="card"><h3>💰 ' + esc(t("payMethod")) + "</h3>" +
+    '<div class="field"><select id="co-paymethod">' +
+    '<option value="cod">' + esc(t("payCOD")) + "</option>" +
+    '<option value="wavepay">WavePay</option>' +
+    '<option value="kbzpay">KBZPay</option>' +
+    "</select></div>" +
+    '<div class="field" id="co-txnwrap" style="display:none"><label>' + esc(t("payTxn")) + '</label><input id="co-txn" placeholder="..."></div></div>';
   html += '<div class="card">' +
     '<div class="profile-row"><span>' + esc(t("subtotal")) + "</span><b>" + money(cartTotal()) + "</b></div>" +
     '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(cartFeesTotal()) + "</b></div>" +
     '<div class="profile-row"><span>' + esc(t("total")) + "</span><b>" + money(cartGrandTotal()) + "</b></div>" +
     '<button class="btn" style="width:100%;margin-top:8px" onclick="checkoutAll()">' + esc(t("buyNow")) + "</button></div>";
   app.innerHTML = html;
+  const pmSel = document.getElementById("co-paymethod");
+  const txnWrap = document.getElementById("co-txnwrap");
+  if (pmSel && txnWrap) pmSel.onchange = () => { txnWrap.style.display = pmSel.value === "cod" ? "none" : "block"; };
+  // show vendor payment numbers
+  (async () => {
+    try {
+      const sids = Object.keys(groups);
+      const notes = [];
+      for (const sid of sids) {
+        let s = shopCache[sid];
+        if (!s) {
+          const r = await sb.from("shops").select("wavepay_number,kbzpay_number").eq("id", sid).single();
+          if (r.data) s = { wavepay: r.data.wavepay_number || "", kbzpay: r.data.kbzpay_number || "" };
+        }
+        if (s && (s.wavepay || s.kbzpay)) {
+          const lbl = (window._shops || []).find(x => x.id === sid);
+          const nm = lbl ? shopName(lbl) : sid.slice(0, 8);
+          notes.push("<div class='muted' style='margin-top:6px'><b>" + esc(nm) + "</b>" +
+            (s.wavepay ? "<br>WavePay: <b>" + esc(s.wavepay) + "</b>" : "") +
+            (s.kbzpay ? "<br>KBZPay: <b>" + esc(s.kbzpay) + "</b>" : "") + "</div>");
+        }
+      }
+      if (notes.length && txnWrap) txnWrap.insertAdjacentHTML("beforebegin", notes.join(""));
+    } catch (e) {}
+  })();
 }
 function cartViewDelta(key, delta) {
   const cur = cart.items[key];
@@ -1042,6 +1076,8 @@ async function checkoutAll() {
   const addr = (document.getElementById("co-addr").value || "").trim();
   const phone = (document.getElementById("co-phone").value || "").trim();
   const note = (document.getElementById("co-note").value || "").trim();
+  const payMethod = (document.getElementById("co-paymethod") || {}).value || "cod";
+  const payTxn = ((document.getElementById("co-txn") || {}).value || "").trim();
   if (!addr || !phone) { toast("⚠️ " + t("fillAddressPhone")); return; }
   if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) return;
   try {
@@ -1050,7 +1086,7 @@ async function checkoutAll() {
         itemId: it.itemId, name_zh: it.name_zh, name_my: it.name_my, name_en: it.name_en,
         price: it.price, qty: it.qty
       }));
-      await placeShopOrder(sid, items, { address: addr, phone: phone, note: note });
+      await placeShopOrder(sid, items, { address: addr, phone: phone, note: note, payMethod: payMethod, payTxn: payTxn });
     }
     cart = { items: {} };
     cartFees = {};
@@ -1081,6 +1117,7 @@ async function placeShopOrder(shopId, items, delivery) {
     items: items, total_yuan: total,
     delivery_address: delivery.address, customer_phone: delivery.phone,
     note: delivery.note || null, delivery_fee_yuan: fee,
+    payment_method: delivery.payMethod || "cod", payment_txn: delivery.payTxn || null,
     status: "pending", conversation_id: null
   }).select().single();
   if (oErr) throw oErr;
@@ -1535,7 +1572,7 @@ function orderCard(o, shop, isVendor) {
   let btns = "";
   if (isVendor) {
     if (o.status === "pending") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','accepted')\">" + esc(t("acceptOrder")) + "</button>";
-    if (o.status === "accepted") btns += '<button class="btn small" onclick="setStatus(\'' + o.id + "','" + o.convId + "','delivering')\">" + esc(t("startDelivery")) + "</button>";
+    if (o.status === "accepted") btns += '<button class="btn small" onclick="setStatus(\'' + o.id + "','" + o.convId + "','ready')\">" + esc(t("markReady")) + "</button>";
     if (o.status === "delivering") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','done')\">" + esc(t("completeOrder")) + "</button>";
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
@@ -1566,6 +1603,9 @@ function orderCard(o, shop, isVendor) {
       ? '<div class="delivery-info">📍 ' + esc(o.deliveryAddress || "") +
         (o.customerPhone ? "<br>📞 " + esc(o.customerPhone) : "") +
         (o.note ? "<br>📝 " + esc(o.note) : "") + "</div>" : "") +
+    (o.payMethod && o.payMethod !== "cod"
+      ? '<div class="delivery-info">💰 ' + esc(o.payMethod === "wavepay" ? "WavePay" : "KBZPay") +
+        (o.payTxn ? " · " + esc(o.payTxn) : "") + "</div>" : "") +
     (o.deliveryFee > 0
       ? '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(o.deliveryFee) + "</b></div>" : "") +
     "<b>" + esc(t("total")) + ": " + money(o.total) + "</b>" +
@@ -1677,6 +1717,8 @@ function shopForm(s) {
     '<div class="field"><label>' + esc(t("phone")) + '</label><input id="s-phone" value="' + v("phone") + '"></div>' +
     '<div class="field"><label>' + esc(t("wechatId")) + '</label><input id="s-wechat" value="' + v("wechatId") + '"></div>' +
     '<div class="field"><label>' + esc(t("deliveryFeeYuan")) + '</label><input id="s-fee" type="number" min="0" step="1" value="' + esc(s.deliveryFee != null ? s.deliveryFee : 0) + '"></div>' +
+    '<div class="field"><label>WavePay</label><input id="s-wavepay" value="' + v("wavepay") + '" placeholder="09..."></div>' +
+    '<div class="field"><label>KBZPay</label><input id="s-kbzpay" value="' + v("kbzpay") + '" placeholder="09..."></div>' +
     '<div class="field"><label>' + esc(t("allCategories")) + '</label><select id="s-cat">' +
     CATEGORIES.filter(c => c.id !== "all").map(c =>
       '<option value="' + c.id + '"' + (s.category === c.id ? " selected" : "") + ">" + esc(catName(c.id)) + "</option>").join("") +
@@ -1696,6 +1738,8 @@ async function saveShop() {
     wechat_id: document.getElementById("s-wechat").value.trim() || null,
     delivery_fee_yuan: Math.max(0, Number(document.getElementById("s-fee").value) || 0),
     category: document.getElementById("s-cat").value,
+    wavepay_number: document.getElementById("s-wavepay").value.trim(),
+    kbzpay_number: document.getElementById("s-kbzpay").value.trim(),
     emoji: (myShop && myShop.emoji) || "🍜",
     owner_id: currentUser.id,
     sample: false
@@ -2315,10 +2359,16 @@ function renderTapbar() {
   const role = userDoc && userDoc.role;
   const cc = (typeof cartCount === "function") ? cartCount() : 0;
   const isV = role === "vendor" || role === "admin";
+  const isD = role === "driver";
   const tu = window._totalUnread || 0;
   const chatTab = { ic: ICONS.chat, label: t("chat"), hash: "#/chats", active: h === "#/chats" || h.startsWith("#/chat/"), badge: tu };
   let tabs;
-  if (isV) {
+  if (isD) {
+    tabs = [
+      { ic: ICONS.box, label: t("deliveries"), hash: "#/driver", active: h === "#/driver" || !h.startsWith("#/") },
+      chatTab
+    ];
+  } else if (isV) {
     tabs = [
       { ic: ICONS.home, label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
       chatTab,
@@ -2351,6 +2401,70 @@ function renderTapbar() {
   syncOrderTabBadge();
 }
 
+/* ---------- driver ---------- */
+async function viewDriver() {
+  if (needLogin()) return;
+  const app = document.getElementById("app");
+  if (!userDoc || userDoc.role !== "driver") {
+    app.innerHTML = '<div class="notice">' + esc(t("loginFirst")) + "</div>";
+    return;
+  }
+  if (!userDoc.driverApproved) {
+    app.innerHTML = '<div class="notice">' + esc(t("driverPending")) + "</div>";
+    return;
+  }
+  app.innerHTML = "<h2>" + esc(t("deliveries")) + '</h2><div class="tabs">' +
+    '<div class="tab active" id="dtab-avail" onclick="setDriverTab(0)">' + esc(t("availableOrders")) + "</div>" +
+    '<div class="tab" id="dtab-mine" onclick="setDriverTab(1)">' + esc(t("myDeliveries")) + "</div>" +
+    '</div><div id="dbody"><div class="center muted">…</div></div>';
+  drawDriverTab(window._driverTab || 0);
+}
+function setDriverTab(i) {
+  window._driverTab = i;
+  document.getElementById("dtab-avail").className = "tab" + (i === 0 ? " active" : "");
+  document.getElementById("dtab-mine").className = "tab" + (i === 1 ? " active" : "");
+  drawDriverTab(i);
+}
+async function drawDriverTab(i) {
+  const box = document.getElementById("dbody");
+  if (!box) return;
+  box.innerHTML = '<div class="center muted">…</div>';
+  try {
+    let q = sb.from("orders").select("*").order("created_at", { ascending: false }).limit(50);
+    if (i === 0) q = q.eq("status", "ready").is("driver_id", null);
+    else q = q.eq("driver_id", currentUser.id).in("status", ["delivering"]);
+    const { data, error } = await q;
+    if (error) throw error;
+    const list = (data || []).map(mapOrder);
+    if (!list.length) {
+      box.innerHTML = '<div class="card center muted">' + esc(t(i === 0 ? "noAvailable" : "noOrders")) + "</div>";
+      return;
+    }
+    box.innerHTML = list.map(o =>
+      '<div class="card"><b>' + money(o.total) + '</b> <span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span>" +
+      '<div class="muted">' + esc(o.shopName || o.shopId || "") + " · " + esc(fmtTime(o.createdAt)) + "</div>" +
+      (o.deliveryAddress ? '<div class="muted">' + esc(o.deliveryAddress) + "</div>" : "") +
+      (o.customerPhone ? '<div><a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a></div>" : "") +
+      '<div class="rowbtns">' +
+      (i === 0
+        ? '<button class="btn small green" onclick="acceptDelivery(\'' + o.id + '\')">' + esc(t("acceptDelivery")) + "</button>"
+        : '<button class="btn small green" onclick="driverDelivered(\'' + o.id + '\')">' + esc(t("markDelivered")) + "</button>") +
+      "</div></div>").join("");
+  } catch (e) { box.innerHTML = '<div class="card">⚠️ ' + esc(e.message) + "</div>"; }
+}
+async function acceptDelivery(orderId) {
+  const { error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null);
+  if (error) toast("⚠️ " + error.message);
+  else { toast("✅"); setDriverTab(1); }
+}
+async function driverDelivered(orderId) {
+  if (!(await confirmDlg(t("markDelivered") + "?"))) return;
+  const { error } = await sb.from("orders").update({ status: "done" }).eq("id", orderId).eq("driver_id", currentUser.id);
+  if (error) toast("⚠️ " + error.message);
+  else drawDriverTab(1);
+}
+
+
 /* ---------- admin ---------- */
 async function viewAdmin() {
   if (needLogin()) return;
@@ -2366,6 +2480,8 @@ async function viewAdmin() {
     '<div class="tab' + (adminTab === "users" ? " active" : "") + '" onclick="setAdminTab(\'users\')"><span class="tic">' + ICONS.user + "</span> " + esc(t("allUsers")) + "</div>" +
     '<div class="tab' + (adminTab === "orders" ? " active" : "") + '" onclick="setAdminTab(\'orders\')"><span class="tic">' + ICONS.box + "</span> " + esc(t("allOrders")) + "</div>" +
     '<div class="tab' + (adminTab === "reports" ? " active" : "") + '" onclick="setAdminTab(\'reports\')"><span class="tic">' + ICONS.flag + "</span> " + esc(t("reports")) + "</div>" +
+    '<div class="tab' + (adminTab === "drivers" ? " active" : "") + '" onclick="setAdminTab(\'drivers\')">🛵 ' + esc(t("pendingDrivers")) + "</div>" +
+    '<div class="tab' + (adminTab === "drivers" ? " active" : "") + '" onclick="setAdminTab(\'drivers\')">🛵 ' + esc(t("pendingDrivers")) + "</div>" +
     "</div><div id=\"atab\"></div>";
   const box = document.getElementById("atab");
   if (adminTab === "shops") {
@@ -2413,6 +2529,22 @@ async function viewAdmin() {
       '<button class="btn small ' + (r.status === "open" ? "gray" : "") + '" onclick="adminBanUser(\'' + r.reported_user_id + "',true)\">" + esc(t("ban")) + "</button>" +
       '<button class="btn small gray" onclick="adminResolveReport(\'' + r.id + "')\">" + esc(t("del")) + "</button></div></div>").join("")
       : '<div class="card center muted">' + esc(t("noChats")) + "</div>";
+  } else if (adminTab === "drivers") {
+    const { data, error } = await sb.from("users").select("*").eq("role", "driver").order("created_at", { ascending: false });
+    if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
+    const list = (data || []).map(mapUser);
+    box.innerHTML = list.length ? list.map(u =>
+      '<div class="card"><b>' + esc(u.name || "") + "</b> " +
+      (u.driverApproved ? '<span class="badge" style="background:#d4edda;color:#155724">✓</span>'
+        : '<span class="badge" style="background:#fff3cd;color:#856404">' + esc(t("pendingDrivers")) + "</span>") +
+      '<div class="muted">' + esc(u.email || "") + (u.phone ? " · " + esc(u.phone) : "") + "</div>" +
+      '<div class="rowbtns">' +
+      (!u.driverApproved ? '<button class="btn small green" data-addrv="' + u.id + '">' + esc(t("approve")) + "</button>" : "") +
+      (u.driverApproved ? '<button class="btn small gray" data-rejdrv="' + u.id + '">' + esc(t("reject")) + "</button>" : "") +
+      "</div></div>").join("")
+      : '<div class="card center muted">' + esc(t("noOrders")) + "</div>";
+    box.querySelectorAll("[data-addrv]").forEach(b => b.onclick = () => adminApproveDriver(b.getAttribute("data-addrv"), true));
+    box.querySelectorAll("[data-rejdrv]").forEach(b => b.onclick = () => adminApproveDriver(b.getAttribute("data-rejdrv"), false));
   } else {
     const { data, error } = await sb.from("orders").select("*").order("created_at", { ascending: false });
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
@@ -2422,6 +2554,10 @@ async function viewAdmin() {
       '<div class="muted">' + esc(String(o.id).slice(0, 8)) + " · " + esc(fmtTime(o.createdAt)) + "</div></div>").join("")
       : '<div class="card center muted">' + esc(t("noOrders")) + "</div>";
   }
+}
+async function adminApproveDriver(uid, approve) {
+  const { error } = await sb.from("users").update({ driver_approved: !!approve }).eq("id", uid);
+  if (error) toast("⚠️ " + error.message); else viewAdmin();
 }
 function setAdminTab(tab) { adminTab = tab; viewAdmin(); }
 async function adminApproveShop(id) {
