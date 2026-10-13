@@ -587,7 +587,7 @@ function viewSettings() {
 function savePrefs() {
   setPref("addr", (document.getElementById("s-addr").value || "").trim());
   setPref("phone", (document.getElementById("s-phone").value || "").trim());
-  toast("✅");
+  prettyToast("✅", t("done"), "green");
 }
 function toggleNotif() {
   setPref("notif", document.getElementById("s-notif").checked ? "1" : "0");
@@ -2609,7 +2609,7 @@ async function acceptDelivery(orderId) {
   const { data, error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null).select("id");
   if (error) { toast("⚠️ " + error.message); return; }
   if (!data || !data.length) { toast("⚠️ " + t("alreadyTaken")); drawDriverTab(0); return; }
-  toast("✅"); setDriverTab(1);
+  prettyToast("✅", t("done"), "green"); setDriverTab(1);
 }
 async function driverDelivered(orderId) {
   if (!(await confirmDlg(t("markDelivered") + "?"))) return;
@@ -2621,7 +2621,7 @@ async function releaseDelivery(orderId) {
   if (!(await confirmDlg(t("releaseDelivery") + "?"))) return;
   const { error } = await sb.from("orders").update({ driver_id: null, status: "ready" }).eq("id", orderId).eq("driver_id", currentUser.id);
   if (error) toast("⚠️ " + error.message);
-  else { toast("✅"); drawDriverTab(1); }
+  else { prettyToast("✅", t("done"), "green"); drawDriverTab(1); }
 }
 
 
@@ -2762,7 +2762,7 @@ async function importSamples() {
       const { error: mErr } = await sb.from("menu_items").insert(rows);
       if (mErr) throw mErr;
     }
-    toast("✅");
+    prettyToast("✅", t("done"), "green");
     viewAdmin();
   } catch (e) { toast("⚠️ " + e.message); }
 }
