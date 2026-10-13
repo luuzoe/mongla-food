@@ -2668,12 +2668,13 @@ async function drawDriverTab(i) {
     const shopMap = {};
     if (sids.length) {
       try {
-        const sr = await sb.from("shops").select("id,address_zh,address_my,phone").in("id", sids);
+        const sr = await sb.from("shops").select("id,name_zh,name_my,name_en,address_zh,address_my,phone").in("id", sids);
         (sr.data || []).forEach(x => { shopMap[x.id] = x; });
       } catch (e) {}
     }
     box.innerHTML = summaryHtml + list.map(o => {
       const sh = shopMap[o.shopId] || {};
+      const shName = shopName(sh) || o.shopId || "";
       const shAddr = sh.address_zh || sh.address_my || "";
       const items = (o.items || []).map(it =>
         "<div>\u2022 " + esc(it.name_my || it.name_zh || it.name_en || "") + " \u00d7 " + (it.qty || 0) + "</div>").join("");
@@ -2682,7 +2683,7 @@ async function drawDriverTab(i) {
       '<div style="font-size:12px;font-weight:700;color:' + (o.payMethod === "cod" ? "#c00" : "#0a0") + '">' +
       "💰 " + esc(t("pay_" + o.payMethod)) + (o.payTxn ? " · " + esc(o.payTxn) : "") + "</div>" +
       '<div class="muted" style="font-size:12px">' +
-      (shAddr ? "\uD83C\uDFEA " + esc(shAddr) + (sh.phone ? " \u00b7 " + esc(sh.phone) : "") + "<br>" : "") +
+      "🏪 <b>" + esc(shName) + "</b>" + (shAddr ? "<br>📍 " + esc(shAddr) : "") + (sh.phone ? ' · <a href="tel:' + esc(sh.phone) + '">' + esc(sh.phone) + "</a>" : "") + "<br>" +
       "\uD83D\uDCCD " + esc(o.deliveryAddress || "") + "<br>" +
       "\uD83D\uDC64 " + esc(o.customerName || "") + (o.customerPhone ? ' \u00b7 <a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a>" : "") + " \u00b7 " + esc(fmtTime(o.createdAt)) + "</div>" +
       (i === 0 ? '<div style="margin-top:6px"><button class="btn small green" data-acc="' + o.id + '">' + esc(t("acceptDelivery")) + "</button></div>"
