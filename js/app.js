@@ -1660,6 +1660,7 @@ async function viewChats() {
   window._openChatsView = null;
   const app = document.getElementById("app");
   app.innerHTML = '<h2>💬 ' + esc(t("chat")) + '</h2>' +
+    '<div id="dbg-line" class="meta" style="font-size:11px;word-break:break-all;background:#fff3;padding:4px;border-radius:6px"></div>' +
     '<div id="chats-list"><div class="center muted">\u2026</div></div><div id="chats-view"></div>';
   const col = isV ? "vendor_id" : "customer_id";
   const readKey = isV ? "vendorReadAt" : "customerReadAt";
@@ -1689,6 +1690,13 @@ async function viewChats() {
       const unread = await unreadCounts(list.map(c => c.id), readKey, convById);
       window._totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
       syncChatTabBadge();
+      try {
+        const dbgEl = document.getElementById("dbg-line");
+        if (dbgEl) {
+          const parts = list.map(c => c.id.slice(0,6) + ":cr=" + String(c.customerReadAt).slice(11,19) + ",vr=" + String(c.vendorReadAt).slice(11,19) + ",u=" + (unread[c.id]||0));
+          dbgEl.textContent = "DBG role=" + role + " uid=" + String(currentUser.id).slice(0,6) + " key=" + readKey + " | " + parts.join(" ");
+        }
+      } catch (e2) {}
       refreshTotalUnread(false);
       if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
       listBox.innerHTML = list.map(c => {
