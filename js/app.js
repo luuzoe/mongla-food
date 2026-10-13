@@ -229,6 +229,12 @@ async function handleSession(session) {
       const { data, error } = await sb.from("users").select("*").eq("id", currentUser.id).single();
       if (!error && data) {
         userDoc = mapUser(data);
+        // backfill: push my avatar onto conversations missing it (e.g. uploaded before v13)
+        if (userDoc && userDoc.avatarUrl) {
+          sb.from("conversations").update({ customer_avatar_url: userDoc.avatarUrl })
+            .eq("customer_id", currentUser.id).is("customer_avatar_url", null)
+            .then(() => {}, () => {});
+        }
       } else {
         // First login via OAuth (e.g. Google): create the profile row.
         // (Email signups insert their own row in doCreateAccount.)
