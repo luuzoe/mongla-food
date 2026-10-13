@@ -355,6 +355,11 @@ async function uploadAvatar() {
 function viewProfile() {
   const app = document.getElementById("app");
   if (currentUser) {
+    if (userDoc && userDoc.avatarUrl) {
+      sb.from("conversations").update({ customer_avatar_url: userDoc.avatarUrl })
+        .eq("customer_id", currentUser.id).is("customer_avatar_url", null)
+        .then(() => {}, () => {});
+    }
     app.innerHTML =
       '<div class="card"><h2>👤 ' + esc(t("myAccount")) + "</h2>" +
       (((userDoc && userDoc.role) === "vendor") ? "" :
