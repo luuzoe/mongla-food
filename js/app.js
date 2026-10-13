@@ -349,12 +349,13 @@ function viewProfile() {
   if (currentUser) {
     app.innerHTML =
       '<div class="card"><h2>👤 ' + esc(t("myAccount")) + "</h2>" +
+      (((userDoc && userDoc.role) === "vendor") ? "" :
       '<div class="center" style="margin-bottom:10px">' +
       ((userDoc && userDoc.avatarUrl)
         ? '<img src="' + esc(userDoc.avatarUrl) + '" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">'
         : '<div style="width:96px;height:96px;border-radius:50%;background:#fce4ec;display:inline-flex;align-items:center;justify-content:center;font-size:44px">👤</div>') +
       '<div style="margin-top:8px"><button class="btn small" onclick="document.getElementById(\'avatar-inp\').click()">' + esc(t("changePhoto")) + '</button>' +
-      '<input type="file" id="avatar-inp" accept="image/*" style="display:none" onchange="uploadAvatar()"></div></div>' +
+      '<input type="file" id="avatar-inp" accept="image/*" style="display:none" onchange="uploadAvatar()"></div></div>') +
       '<div class="profile-row"><span class="k">' + esc(t("yourName")) + "</span>" +
       '<span id="p-name-row" style="display:flex;gap:6px;align-items:center">' +
       "<span>" + esc((userDoc && userDoc.name) || currentUser.email) + "</span>" +
