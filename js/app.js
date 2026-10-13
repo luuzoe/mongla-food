@@ -1553,7 +1553,7 @@ async function viewOrders() {
     snapshotOrderSeen(list);
       // realtime: vendor replies -> bump the chat badge live (ping unless its chatbox is open)
       if (convIds.length) {
-        const mch = sb.channel("my-msgs-" + currentUser.id)
+        const mch = sb.channel("my-msgs-" + currentUser.id + "-" + Date.now())
           .on("postgres_changes",
             { event: "INSERT", schema: "public", table: "messages", filter: "conversation_id=in.(" + convIds.join(",") + ")" },
             (payload) => {
@@ -1584,7 +1584,7 @@ async function viewOrders() {
     document.getElementById("olist").innerHTML = "⚠️ " + esc(e.message);
   }
   // realtime: refresh the list whenever one of my orders changes status
-  const ch = sb.channel("my-orders-" + currentUser.id)
+  const ch = sb.channel("my-orders-" + currentUser.id + "-" + Date.now())
     .on("postgres_changes",
       { event: "*", schema: "public", table: "orders", filter: "customer_id=eq." + currentUser.id },
       (payload) => {
