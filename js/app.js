@@ -218,6 +218,11 @@ function boot() {
 async function handleSession(session) {
   currentUser = (session && session.user) ? session.user : null;
   userDoc = null;
+  if (!currentUser) {
+    if (typeof _gcCh !== "undefined" && _gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} }
+    if (typeof _gcCh !== "undefined") _gcCh = null;
+    window._totalUnread = 0; window._tuAt = 0; window._chatsLastMsg = {};
+  }
   if (currentUser) {
     try {
       const { data, error } = await sb.from("users").select("*").eq("id", currentUser.id).single();
@@ -244,6 +249,7 @@ async function handleSession(session) {
 /* ---------- header + side drawer ---------- */
 function renderHeader() {
   renderTapbar();
+  ensureGlobalChatWatch();
   document.querySelectorAll("[data-i18n]").forEach(el => {
     el.textContent = t(el.getAttribute("data-i18n"));
   });
@@ -297,6 +303,7 @@ function renderAll() {
   if (h.startsWith("#/shop/")) { const id = h.split("/")[2]; return viewShop(id); }
   if (h === "#/cart") return viewCart();
   if (h === "#/orders") return viewOrders();
+  if (h === "#/chats") return viewChats();
   if (h === "#/vendor") return viewVendor();
   if (h === "#/admin") return viewAdmin();
   if (h === "#/profile") return viewProfile();
@@ -1638,6 +1645,98 @@ async function delMenuItem(itemId) {
     drawVendorMenu();
   } catch (e) { toast("⚠️ " + e.message); }
 }
+/* ---------- all-my-chats view (customer + vendor) ----------
+ * One place for every conversation: unread badges, tap to open inline.
+ * Incoming messages land here live with popup + sound. */
+async function viewChats() {
+  if (needLogin()) return;
+  const role = (userDoc && userDoc.role) || "customer";
+  const isV = role === "vendor";
+  window._openChatsView = null;
+  const app = document.getElementById("app");
+  app.innerHTML = '<h2>💬 ' + esc(t("chat")) + '</h2>' +
+    '<div id="chats-list"><div class="center muted">\u2026</div></div><div id="chats-view"></div>';
+  const col = isV ? "vendor_id" : "customer_id";
+  const readKey = isV ? "vendorReadAt" : "customerReadAt";
+
+  const render = async () => {
+    const listBox = document.getElementById("chats-list");
+    if (!listBox) return;
+    try {
+      const { data, error } = await sb.from("conversations").select("*")
+        .eq(col, currentUser.id).order("last_message_at", { ascending: false });
+      if (error) throw error;
+      const list = (data || []).map(mapConv);
+      let names = {};
+      if (!isV) {
+        const sids = [...new Set(list.map(c => c.shopId).filter(Boolean))];
+        if (sids.length) {
+          const { data: shops } = await sb.from("shops").select("id,name_zh,name_my,name_en").in("id", sids);
+          (shops || []).forEach(x => names[x.id] = shopName(mapShop(x)));
+        }
+      }
+      const convById = {};
+      window._chatsLastMsg = window._chatsLastMsg || {};
+      list.forEach(c => {
+        convById[c.id] = c;
+        if (!(c.id in window._chatsLastMsg)) window._chatsLastMsg[c.id] = c.lastMessageAt;
+      });
+      const unread = await unreadCounts(list.map(c => c.id), readKey, convById);
+      window._totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+      refreshTotalUnread(false);
+      if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
+      listBox.innerHTML = list.map(c => {
+        const nm = isV ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
+        return '<div class="card shop-card" data-conv="' + c.id + '"><div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>" +
+          '<div style="flex:1"><h3>' + esc(nm) +
+          (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
+          '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>";
+      }).join("");
+      listBox.querySelectorAll("[data-conv]").forEach(el =>
+        el.onclick = () => {
+          const b = el.querySelector(".ubadge");
+          const n = b ? Number(b.textContent) || 0 : 0;
+          if (b) b.remove();
+          if (n) window._totalUnread = Math.max(0, (window._totalUnread || 0) - n);
+          window._openChatsView = el.getAttribute("data-conv");
+          mountChat(document.getElementById("chats-view"), el.getAttribute("data-conv"), "💬");
+        });
+    } catch (e) { listBox.innerHTML = "\u26A0\uFE0F " + esc(e.message); }
+  };
+  await render();
+
+  const ch = sb.channel("chats-page-" + currentUser.id)
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "conversations", filter: col + "=eq." + currentUser.id },
+      async (payload) => {
+        const n = payload && payload.new;
+        if (payload && payload.eventType === "INSERT" && n) {
+          window._chatsLastMsg = window._chatsLastMsg || {};
+          window._chatsLastMsg[n.id] = n.last_message_at;
+          notifyPing("💬 " + t("newChat"));
+        } else if (payload && payload.eventType === "UPDATE" && n) {
+          const seen = (window._chatsLastMsg || {})[n.id];
+          if (seen !== n.last_message_at) {
+            window._chatsLastMsg = window._chatsLastMsg || {};
+            window._chatsLastMsg[n.id] = n.last_message_at;
+            if (window._openChatsView !== n.id) {
+              const { data: lm } = await sb.from("messages").select("sender_id,body,kind")
+                .eq("conversation_id", n.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+              if (lm && lm.sender_id !== currentUser.id) {
+                const preview = lm.kind === "image" ? "📷 " + t("photoSent")
+                  : lm.kind === "video" ? "🎥 " + t("videoSent")
+                  : (lm.body || "").slice(0, 40);
+                notifyPing("💬 " + preview);
+              }
+            }
+          }
+        }
+        render();
+      })
+    .subscribe();
+  unsubs.push(ch);
+}
+
 async function drawVendorChats() {
   const box = document.getElementById("vtab");
   box.innerHTML = '<div id="chatlist"><div class="center muted">\u2026</div></div><div id="chatview"></div>';
@@ -1837,6 +1936,70 @@ function renderNav() {
   nav.innerHTML = html;
 }
 
+/* Total unread across all my conversations (chat tab badge). */
+async function countTotalUnread() {
+  try {
+    if (!currentUser) return 0;
+    const role = (userDoc && userDoc.role) || "customer";
+    const isV = role === "vendor";
+    const col = isV ? "vendor_id" : "customer_id";
+    const rcol = isV ? "vendor_last_read_at" : "customer_last_read_at";
+    const rkey = isV ? "vendorReadAt" : "customerReadAt";
+    const { data } = await sb.from("conversations").select("id," + rcol).eq(col, currentUser.id);
+    const list = data || [];
+    if (!list.length) return 0;
+    const convById = {};
+    list.forEach(c => convById[c.id] = { [rkey]: c[rcol] });
+    const counts = await unreadCounts(list.map(c => c.id), rkey, convById);
+    return Object.values(counts).reduce((a, b) => a + b, 0);
+  } catch (e) { return 0; }
+}
+async function refreshTotalUnread(force) {
+  if (!currentUser) { window._totalUnread = 0; return 0; }
+  const now = Date.now();
+  if (!force && window._tuAt && now - window._tuAt < 20000) return window._totalUnread || 0;
+  window._tuAt = now;
+  const n = await countTotalUnread();
+  window._totalUnread = n;
+  const btn = document.querySelector('#tapbar [data-h="#/chats"]');
+  if (btn) {
+    let b = btn.querySelector(".cbadge");
+    if (n > 0) {
+      if (!b) { b = document.createElement("span"); b.className = "cbadge"; btn.appendChild(b); }
+      b.textContent = n;
+    } else if (b) b.remove();
+  }
+  return n;
+}
+/* One silent global watcher: any new message in any of my conversations
+ * refreshes the chat tab badge, wherever I am in the app. */
+let _gcCh = null;
+function ensureGlobalChatWatch() {
+  const uid = currentUser && currentUser.id;
+  if (!uid || typeof sb === "undefined") return;
+  if (_gcCh && _gcCh._uid === uid) return;
+  if (_gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} _gcCh = null; }
+  const role = (userDoc && userDoc.role) || "customer";
+  const col = role === "vendor" ? "vendor_id" : "customer_id";
+  const ch = sb.channel("global-chats-" + uid)
+    .on("postgres_changes",
+      { event: "UPDATE", schema: "public", table: "conversations", filter: col + "=eq." + uid },
+      (payload) => {
+        const n = payload && payload.new;
+        if (!n) return;
+        window._chatsLastMsg = window._chatsLastMsg || {};
+        if (window._chatsLastMsg[n.id] !== n.last_message_at) {
+          window._chatsLastMsg[n.id] = n.last_message_at;
+          refreshTotalUnread(true);
+        } else {
+          refreshTotalUnread(false);
+        }
+      })
+    .subscribe();
+  ch._uid = uid;
+  _gcCh = ch;
+}
+
 /* Bottom tap bar: Home | Cart(badge) | Orders | Vendor? | Profile. */
 function renderTapbar() {
   let bar = document.getElementById("tapbar");
@@ -1849,14 +2012,27 @@ function renderTapbar() {
   const h = location.hash || "#/";
   const role = userDoc && userDoc.role;
   const cc = (typeof cartCount === "function") ? cartCount() : 0;
-  const tabs = [
-    { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
-    { ic: "🛒", label: t("cart"), hash: "#/cart", active: h === "#/cart", badge: cc }
-  ];
-  if (currentUser) tabs.push({ ic: "📦", label: t("orders"), hash: "#/orders", active: h === "#/orders" });
-  if (role === "vendor" || role === "admin")
-    tabs.push({ ic: "🏪", label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" });
-  tabs.push({ ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" });
+  const isV = role === "vendor" || role === "admin";
+  const tu = window._totalUnread || 0;
+  const chatTab = { ic: "💬", label: t("chat"), hash: "#/chats", active: h === "#/chats", badge: tu };
+  let tabs;
+  if (isV) {
+    tabs = [
+      { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
+      chatTab,
+      { ic: "🏪", label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" },
+      { ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" }
+    ];
+  } else {
+    tabs = [
+      { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
+      { ic: "🛒", label: t("cart"), hash: "#/cart", active: h === "#/cart", badge: cc }
+    ];
+    if (currentUser) tabs.push({ ic: "📦", label: t("orders"), hash: "#/orders", active: h === "#/orders" });
+    tabs.push(chatTab);
+    tabs.push({ ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" });
+  }
+  refreshTotalUnread(false);
   bar.innerHTML = tabs.map(tb =>
     '<button class="' + (tb.active ? "active" : "") + '" data-h="' + tb.hash + '">' +
     '<span class="ic">' + tb.ic + "</span><span>" + esc(tb.label) + "</span>" +
