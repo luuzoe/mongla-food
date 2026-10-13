@@ -151,6 +151,8 @@ function toggleFav(key) {
   if (i >= 0) f.splice(i, 1); else f.push(key);
   setPref("favs", JSON.stringify(f));
   drawDishGrid();
+  try { renderFeedPosts(); } catch (e) {}
+  try { renderShopPosts(); } catch (e) {}
 }
 function notifyPing(msg) {
   if (getPref("notif", "1") !== "1") return;
@@ -622,7 +624,8 @@ function postCardHTML(p, showShop) {
   const shopLabel = (showShop && p.shopName)
     ? '<div class="post-shop" onclick="event.stopPropagation();location.hash=\'#/shop/' + p.shopId + "'\">🏪 " + esc(p.shopName) + "</div>" : "";
   return '<div class="post-card"' + click + ">" +
-    '<div class="post-photo">' + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy">' : "📢") + "</div>" +
+    '<div class="post-photo" style="position:relative">' + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy">' : "📢") +
+    '<button class="fav-star' + (isFav(key) ? ' on' : '') + '" onclick="event.stopPropagation();toggleFav(\'' + key + '\')">' + (isFav(key) ? '\u2605' : '\u2606') + '</button></div>' +
     '<div class="post-body">' +
     '<div class="post-text">' + esc(p.body) + "</div>" +
     shopLabel +
@@ -661,6 +664,8 @@ function renderFeedPosts() {
   if (!box) return;
   const cat = (typeof homeFilter !== "undefined" && homeFilter.cat) || "all";
   const list = (window._feedPosts || []).filter(p => cat === "all" || (p.category || "foods") === cat);
+  const favs = getFavs();
+  list.sort((a, b) => ((favs.indexOf(b.shopId + "__post_" + b.id) >= 0) ? 1 : 0) - ((favs.indexOf(a.shopId + "__post_" + a.id) >= 0) ? 1 : 0));
   if (!list.length) { box.innerHTML = ""; return; }
   box.innerHTML = '<h3 style="margin:16px 0 8px">🔥 ' + esc(t("feedTitle")) + "</h3>" +
     '<div class="post-grid">' + list.map(p => postCardHTML(p, true)).join("") + "</div>";
