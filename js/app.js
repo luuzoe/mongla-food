@@ -29,7 +29,7 @@ function mapShop(r) {
     phone: r.phone, category: r.category, emoji: r.emoji, sample: r.sample,
     deliveryFee: Number(r.delivery_fee_yuan) || 0, wechatId: r.wechat_id || "",
     photo_url: r.photo_url || null, approved: r.approved !== false, wavepay: r.wavepay_number || "", kbzpay: r.kbzpay_number || "",
-    ownerUid: r.owner_id, createdAt: r.created_at
+    ownerUid: r.owner_id, createdAt: r.created_at, isOpen: r.is_open !== false
   };
 }
 function mapItem(r) {
@@ -67,7 +67,8 @@ function mapOrder(r) {
     deliveryAddress: r.delivery_address || "", customerPhone: r.customer_phone || "",
     note: r.note || "", deliveryFee: Number(r.delivery_fee_yuan) || 0,
     convId: r.conversation_id, customerName: r.customer_name,
-    customerEmail: r.customer_email, createdAt: r.created_at, payMethod: r.payment_method || "cod", payTxn: r.payment_txn || ""
+    customerEmail: r.customer_email, createdAt: r.created_at, payMethod: r.payment_method || "cod", payTxn: r.payment_txn || "",
+    driverId: r.driver_id || null
   };
 }
 function mapPost(r) {
@@ -619,11 +620,12 @@ async function viewHome() {
   try {
     // one query: shops + their menus (public read, no login needed)
     const { data: shops, error } = await sb.from("shops").select("*, menu_items(*)").eq("approved", true);
+    const openShops = (shops || []).filter(s => s.is_open !== false);
     window._shops = [];
     window._dishIndex = {};
     window._allDishes = [];
-    if (!error && shops) {
-      for (const rs of shops) {
+    if (!error && openShops) {
+      for (const rs of openShops) {
         const s = mapShop(rs);
         window._shops.push(s);
         for (const rm of (rs.menu_items || [])) {
@@ -1092,6 +1094,15 @@ async function checkoutAll() {
   const payMethod = (document.getElementById("co-paymethod") || {}).value || "cod";
   const payTxn = ((document.getElementById("co-txn") || {}).value || "").trim();
   if (!addr || !phone) { toast("⚠️ " + t("fillAddressPhone")); return; }
+  // validate shop has the selected mobile payment number
+  if (payMethod === "wavepay" || payMethod === "kbzpay") {
+    for (const sid of shopIds) {
+      const sh = (window._shops || []).find(s => s.id === sid);
+      const num = payMethod === "wavepay" ? (sh && sh.wavepay) : (sh && sh.kbzpay);
+      if (!num) { toast("⚠️ " + (sh ? shopName(sh) : "") + ": " + t("noPayNumber")); return; }
+    }
+    if (!payTxn) { toast("⚠️ " + t("fillTxn")); return; }
+  }
   if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) return;
   try {
     for (const sid of shopIds) {
@@ -1488,6 +1499,15 @@ async function viewOrders() {
         shops[o.shopId] = sd ? mapShop(sd) : {};
       }
     }
+    // fetch driver info for delivering orders
+    const drivers = {};
+    const driverIds = [...new Set(list.filter(o => o.driverId && o.status === "delivering").map(o => o.driverId))];
+    if (driverIds.length) {
+      try {
+        const { data: dd } = await sb.from("users").select("id,first_name,phone").in("id", driverIds);
+        (dd || []).forEach(d => { drivers[d.id] = d; });
+      } catch (e) {}
+    }
     window._orderChatInfo = {};
     window._convToOrder = {};
     window._orderList = {};
@@ -1502,6 +1522,7 @@ async function viewOrders() {
     window._unreadByConv = await unreadCounts(convIds, "customerReadAt", convById);
     box.innerHTML = list.map(o => {
       const sh = shops[o.shopId] || {};
+      o._driver = drivers[o.driverId] || null;
       window._orderChatInfo[o.id] = { shopId: o.shopId, vendorUid: o.vendorUid, title: shopName(sh) };
       if (o.convId) window._convToOrder[o.convId] = o.id;
       window._orderList[o.id] = o;
@@ -1592,7 +1613,7 @@ function orderCard(o, shop, isVendor) {
   } else {
     const uc = ((window._unreadByConv || {})[o.convId] || 0);
     btns += '<button class="btn small" data-chatbtn="' + o.id + '" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + (uc ? ' <span class="ubadge">' + uc + "</span>" : "") + "</button>";
-    if (o.status === "pending")
+    if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
     btns += '<button class="btn small" data-reorder="' + o.id + '">🔁 ' + esc(t("reorder")) + "</button>";
     if (o.status === "delivering")
@@ -1616,6 +1637,9 @@ function orderCard(o, shop, isVendor) {
       ? '<div class="delivery-info">📍 ' + esc(o.deliveryAddress || "") +
         (o.customerPhone ? "<br>📞 " + esc(o.customerPhone) : "") +
         (o.note ? "<br>📝 " + esc(o.note) : "") + "</div>" : "") +
+    (o._driver && o.status === "delivering"
+      ? '<div class="delivery-info" style="background:#e8f5e9">🛵 ' + esc(t("yourDriver")) + ": <b>" + esc(o._driver.first_name || "") + "</b>" +
+        (o._driver.phone ? ' · <a href="tel:' + esc(o._driver.phone) + '">' + esc(o._driver.phone) + "</a>" : "") + "</div>" : "") +
     (o.payMethod && o.payMethod !== "cod"
       ? '<div class="delivery-info">💰 ' + esc(o.payMethod === "wavepay" ? "WavePay" : "KBZPay") +
         (o.payTxn ? " · " + esc(o.payTxn) : "") + "</div>" : "") +
@@ -1688,6 +1712,7 @@ async function viewVendor() {
     (!myShop.approved ? '<div class="notice">\u23F3 ' + esc(t("shopPendingVendor")) + "</div>" : "") +
     '<div class="card" style="display:flex;gap:20px;position:relative">' +
     '<button class="btn small" style="position:absolute;top:8px;right:8px;padding:6px 10px" onclick="editShopInfo()">✏️</button>' +
+    '<div style="position:absolute;bottom:8px;right:8px"><button class="btn small ' + (myShop.isOpen ? "green" : "gray") + '" onclick="toggleShopOpen()">' + (myShop.isOpen ? "🟢 " + esc(t("shopOpen")) : "🔴 " + esc(t("shopClosed"))) + "</button></div>" +
     '<div style="position:relative;flex-shrink:0" onclick="document.getElementById(\'v-photo\').click()">' +
     (myShop.photo_url
       ? '<img src="' + esc(myShop.photo_url) + '" alt="" style="width:112px;height:112px;border-radius:50%;object-fit:cover;display:block">'
@@ -1715,6 +1740,15 @@ function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
 function drawVendorInfo() {
   const box = document.getElementById("vtab");
   box.innerHTML = showShopForm ? shopForm(myShop) : "";
+}
+async function toggleShopOpen() {
+  if (!myShop) return;
+  const newVal = !myShop.isOpen;
+  const { error } = await sb.from("shops").update({ is_open: newVal }).eq("id", myShop.id);
+  if (error) { toast("⚠️ " + error.message); return; }
+  myShop.isOpen = newVal;
+  viewVendor();
+  toast(newVal ? "🟢 " + t("shopOpen") : "🔴 " + t("shopClosed"));
 }
 function editShopInfo() {
   if (vendorTab === "info" && showShopForm) showShopForm = false;
@@ -1799,7 +1833,9 @@ async function drawVendorMenu() {
     '<button class="btn" style="width:100%;margin-bottom:12px" onclick="toggleMenuForm()">➕ ' + esc(t("addItem")) + "</button>" +
     (showMenuForm
       ? '<div class="card"><h3>➕ ' + esc(t("addItem")) + "</h3>" +
-        '<div class="field"><input id="m-zh" placeholder="' + esc(t("itemName")) + '"></div>' +
+        '<div class="field"><input id="m-zh" placeholder="' + esc(t("itemName")) + ' (中文)"></div>' +
+        '<div class="field"><input id="m-my" placeholder="' + esc(t("itemName")) + ' (မြန်မာ)"></div>' +
+        '<div class="field"><input id="m-en" placeholder="' + esc(t("itemName")) + ' (English)"></div>' +
         '<div class="field"><input id="m-price" type="number" min="0" placeholder="' + esc(t("priceYuan")) + '"></div>' +
         '<div class="field"><input id="m-photo" placeholder="' + esc(t("photoUrl")) + '"></div>' +
         '<button class="btn" style="width:100%" onclick="addMenuItem()">' + esc(t("add")) + "</button></div>"
@@ -1807,13 +1843,16 @@ async function drawVendorMenu() {
     '<div class="card">' + (items.length ? items.map(it =>
       '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + ' <span data-rp="' + it.id + '"></span></div>' +
       '<div class="pr">' + money(it.price) + "</div></div>" +
-      '<button class="btn small gray" onclick="delMenuItem(\'' + it.id + "')\">" + esc(t("del")) + "</button></div>"
+      '<div style="display:flex;gap:6px;align-items:center">' +
+      '<button class="btn small ' + (it.available !== false ? "green" : "gray") + '" onclick="toggleItemAvail(\'' + it.id + "'," + (it.available !== false ? "false" : "true") + ')">' + esc(t(it.available !== false ? "soldOut" : "inStock")) + "</button>" +
+      '<button class="btn small gray" onclick="delMenuItem(\'' + it.id + "')\">" + esc(t("del")) + "</button></div></div>"
     ).join("") : '<div class="muted center">—</div>') + "</div>";
   loadRateBadges(box);
 }
 async function addMenuItem() {
   const nzh = document.getElementById("m-zh").value.trim();
-  const nmy = "", nen = "";
+  const nmy = (document.getElementById("m-my") || {}).value.trim() || "";
+  const nen = (document.getElementById("m-en") || {}).value.trim() || "";
   const price = Number(document.getElementById("m-price").value);
   const photoUrl = document.getElementById("m-photo").value.trim();
   if (!nzh || !(price >= 0)) { toast("⚠️"); return; }
@@ -1832,6 +1871,11 @@ async function addMenuItem() {
   } catch (e) { toast("⚠️ " + e.message); }
 }
 function toggleMenuForm() { showMenuForm = !showMenuForm; drawVendorMenu(); }
+async function toggleItemAvail(itemId, avail) {
+  const { error } = await sb.from("menu_items").update({ available: avail }).eq("id", itemId);
+  if (error) toast("⚠️ " + error.message);
+  else drawVendorMenu();
+}
 async function delMenuItem(itemId) {
   if (!(await confirmDlg(t("confirmDelete")))) return;
   try {
@@ -2084,12 +2128,20 @@ async function renderChatList() {
 }
 async function drawVendorOrders() {
   const box = document.getElementById("vtab");
+  // auto-cancel stale pending orders (>30 min, vendor never responded)
+  try {
+    const cutoff = new Date(Date.now() - 30 * 60000).toISOString();
+    await sb.from("orders").update({ status: "cancelled" })
+      .eq("vendor_id", currentUser.id).eq("status", "pending").lt("created_at", cutoff);
+  } catch (e) {}
   // realtime first: vendor hears about new orders even with an empty list
   const ch = sb.channel("vendor-orders-" + currentUser.id)
     .on("postgres_changes",
       { event: "*", schema: "public", table: "orders", filter: "vendor_id=eq." + currentUser.id },
       (payload) => {
         if (payload && payload.eventType === "INSERT") notifyPing("🔔 " + t("newOrder"));
+        if (payload && payload.eventType === "UPDATE" && payload.new && payload.new.status === "cancelled")
+          notifyPing("⚠️ " + t("orderCancelled"));
         refreshOrderBadge(true);
         stopListeners(); drawVendorOrders();
       })
@@ -2407,7 +2459,7 @@ function renderTapbar() {
   if (isD) {
     tabs = [
       { ic: ICONS.box, label: t("deliveries"), hash: "#/driver", active: h === "#/driver" || !h.startsWith("#/") },
-      chatTab
+      { ic: ICONS.user, label: t("profile"), hash: "#/profile", active: h === "#/profile" }
     ];
   } else if (isV) {
     tabs = [
@@ -2499,28 +2551,38 @@ async function drawDriverTab(i) {
         "<div>\u2022 " + esc(it.name_my || it.name_zh || it.name_en || "") + " \u00d7 " + (it.qty || 0) + "</div>").join("");
       return '<div class="card" style="padding:8px 10px;font-size:13px;line-height:1.5"><div style="display:flex;justify-content:space-between;align-items:center"><b>' + money(o.total) + '</b> <span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span></div>" +
       '<div>' + items + "</div>" +
+      '<div style="font-size:12px;font-weight:700;color:' + (o.payMethod === "cod" ? "#c00" : "#0a0") + '">' +
+      "💰 " + esc(t("pay_" + o.payMethod)) + (o.payTxn ? " · " + esc(o.payTxn) : "") + "</div>" +
       '<div class="muted" style="font-size:12px">' +
       (shAddr ? "\uD83C\uDFEA " + esc(shAddr) + (sh.phone ? " \u00b7 " + esc(sh.phone) : "") + "<br>" : "") +
       "\uD83D\uDCCD " + esc(o.deliveryAddress || "") + "<br>" +
       "\uD83D\uDC64 " + esc(o.customerName || "") + (o.customerPhone ? ' \u00b7 <a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a>" : "") + " \u00b7 " + esc(fmtTime(o.createdAt)) + "</div>" +
       (i === 0 ? '<div style="margin-top:6px"><button class="btn small green" data-acc="' + o.id + '">' + esc(t("acceptDelivery")) + "</button></div>"
-        : i === 1 ? '<div style="margin-top:6px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + "</button></div>" : "") +
+        : i === 1 ? '<div style="margin-top:6px;display:flex;gap:8px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + '</button><button class="btn small gray" data-rel="' + o.id + '">' + esc(t("releaseDelivery")) + "</button></div>" : "") +
       "</div>";
     }).join("");
     box.querySelectorAll("[data-acc]").forEach(b => b.onclick = () => acceptDelivery(b.getAttribute("data-acc")));
     box.querySelectorAll("[data-dlv]").forEach(b => b.onclick = () => driverDelivered(b.getAttribute("data-dlv")));
+    box.querySelectorAll("[data-rel]").forEach(b => b.onclick = () => releaseDelivery(b.getAttribute("data-rel")));
   } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message) + "</div>"; }
 }
 async function acceptDelivery(orderId) {
-  const { error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null);
-  if (error) toast("⚠️ " + error.message);
-  else { toast("✅"); setDriverTab(1); }
+  const { data, error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null).select("id");
+  if (error) { toast("⚠️ " + error.message); return; }
+  if (!data || !data.length) { toast("⚠️ " + t("alreadyTaken")); drawDriverTab(0); return; }
+  toast("✅"); setDriverTab(1);
 }
 async function driverDelivered(orderId) {
   if (!(await confirmDlg(t("markDelivered") + "?"))) return;
   const { error } = await sb.from("orders").update({ status: "done" }).eq("id", orderId).eq("driver_id", currentUser.id);
   if (error) toast("⚠️ " + error.message);
   else drawDriverTab(1);
+}
+async function releaseDelivery(orderId) {
+  if (!(await confirmDlg(t("releaseDelivery") + "?"))) return;
+  const { error } = await sb.from("orders").update({ driver_id: null, status: "ready" }).eq("id", orderId).eq("driver_id", currentUser.id);
+  if (error) toast("⚠️ " + error.message);
+  else { toast("✅"); drawDriverTab(1); }
 }
 
 
