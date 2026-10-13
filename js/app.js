@@ -122,6 +122,21 @@ function toast(msg) {
   clearTimeout(window._toastT);
   window._toastT = setTimeout(() => ov.classList.remove("open"), 2200);
 }
+/* prettyToast: floating pill with pop animation (cooler than modal toast) */
+function prettyToast(icon, msg, color) {
+  let el = document.getElementById("ptoast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "ptoast";
+    el.className = "ptoast";
+    document.body.appendChild(el);
+  }
+  el.className = "ptoast " + (color || "");
+  el.innerHTML = '<span class="pic">' + icon + '</span><span>' + esc(msg) + "</span>";
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("show")));
+  clearTimeout(window._ptoastT);
+  window._ptoastT = setTimeout(() => el.classList.remove("show"), 2200);
+}
 /* user preferences (localStorage): default address/phone + notification toggle */
 function getPref(k, dflt) {
   try { const v = localStorage.getItem("mf_" + k); return v == null ? dflt : v; }
@@ -1748,7 +1763,7 @@ async function toggleShopOpen() {
   if (error) { toast("⚠️ " + error.message); return; }
   myShop.isOpen = newVal;
   viewVendor();
-  toast(newVal ? "🟢 " + t("shopOpen") : "🔴 " + t("shopClosed"));
+  prettyToast(newVal ? "🟢" : "🔴", t(newVal ? "shopOpen" : "shopClosed"), newVal ? "green" : "red");
 }
 function editShopInfo() {
   if (vendorTab === "info" && showShopForm) showShopForm = false;
@@ -2153,6 +2168,18 @@ async function drawVendorOrders() {
   if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
   const list = (data || []).map(mapOrder);
   if (!list.length) { box.innerHTML = '<div class="card center muted">' + esc(t("noOrders")) + "</div>"; return; }
+  // sales summary
+  const doneOrders = list.filter(o => o.status === "done");
+  const totalSales = doneOrders.reduce((a, o) => a + (o.total || 0), 0);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todaySales = doneOrders.filter(o => (o.createdAt || "").slice(0, 10) === todayStr)
+    .reduce((a, o) => a + (o.total || 0), 0);
+  const salesHtml = '<div class="card" style="background:#e8f5e9;text-align:center">' +
+    '<div style="display:flex;justify-content:space-around">' +
+    '<div><div style="font-size:12px;color:#666">' + esc(t("todaySales")) + '</div><div style="font-size:18px;font-weight:800;color:#2e7d32">' + money(todaySales) + "</div></div>" +
+    '<div><div style="font-size:12px;color:#666">' + esc(t("totalSales")) + '</div><div style="font-size:18px;font-weight:800;color:#2e7d32">' + money(totalSales) + "</div></div>" +
+    '<div><div style="font-size:12px;color:#666">' + esc(t("totalOrders")) + '</div><div style="font-size:18px;font-weight:800">' + doneOrders.length + "</div></div>" +
+    "</div></div>";
   // flag customers with no completed orders yet
   window._newCust = {};
   try {
@@ -2163,7 +2190,7 @@ async function drawVendorOrders() {
       pcids.forEach(id => { if (!hasDone.has(id)) window._newCust[id] = true; });
     }
   } catch (e) {}
-  box.innerHTML = list.map(o =>
+  box.innerHTML = salesHtml + list.map(o =>
     orderCard(o, { name_zh: t("orderFrom") + ": " + (o.customerName || "?") + (o.customerEmail ? " (" + o.customerEmail + ")" : ""), name_my: "", name_en: "" }, true)
   ).join("");
 }
@@ -2536,6 +2563,15 @@ async function drawDriverTab(i) {
       box.innerHTML = '<div class="card center muted">' + esc(t(i === 0 ? "noAvailable" : "noOrders")) + "</div>";
       return;
     }
+    // driver earnings summary on history tab
+    let summaryHtml = "";
+    if (i === 2) {
+      const totalFee = list.reduce((a, o) => a + (o.deliveryFee || 0), 0);
+      summaryHtml = '<div class="card" style="background:#e8f5e9;text-align:center">' +
+        '<div style="font-size:13px;color:#666">' + esc(t("totalDeliveries")) + ": <b>" + list.length + "</b></div>" +
+        '<div style="font-size:20px;font-weight:800;color:#2e7d32">💰 ' + money(totalFee) + "</div>" +
+        '<div style="font-size:12px;color:#666">' + esc(t("totalEarnings")) + "</div></div>";
+    }
     const sids = [...new Set(list.map(o => o.shopId).filter(Boolean))];
     const shopMap = {};
     if (sids.length) {
@@ -2544,7 +2580,7 @@ async function drawDriverTab(i) {
         (sr.data || []).forEach(x => { shopMap[x.id] = x; });
       } catch (e) {}
     }
-    box.innerHTML = list.map(o => {
+    box.innerHTML = summaryHtml + list.map(o => {
       const sh = shopMap[o.shopId] || {};
       const shAddr = sh.address_zh || sh.address_my || "";
       const items = (o.items || []).map(it =>
