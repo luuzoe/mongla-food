@@ -1678,14 +1678,16 @@ function addLongPress(el, fn) {
   el.addEventListener("mouseup", cancel);
   el.addEventListener("mouseleave", cancel);
 }
-/* Clear every message in a conversation (both sides see it emptied). */
+/* Delete a whole conversation (its messages cascade-delete too). */
 async function clearConversation(convId) {
   if (!convId) return;
   if (!(await confirmDlg(t("clearChatConfirm")))) return;
   try {
-    const { error } = await sb.from("messages").delete().eq("conversation_id", convId);
+    const { error } = await sb.from("conversations").delete().eq("id", convId);
     if (error) throw error;
+    if (window._unreadByConv) delete window._unreadByConv[convId];
     toast("\uD83D\uDDD1\uFE0F " + t("chatCleared"));
+    if (typeof renderAll === "function") renderAll();
   } catch (e) { toast("\u26A0\uFE0F " + (e.message || e)); }
 }
 
