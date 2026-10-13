@@ -1524,13 +1524,11 @@ async function viewVendor() {
     "</div></div>" +
     '<div class="tabs">' +
     '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("menu")) + "</div>" +
-    '<div class="tab' + (vendorTab === "orders" ? " active" : "") + '" onclick="setVendorTab(\'orders\')">📦 ' + esc(t("tabOrders")) + "</div>" +
     '<div class="tab' + (vendorTab === "posts" ? " active" : "") + '" onclick="setVendorTab(\'posts\')">📢 ' + esc(t("posts")) + "</div>" +
     "</div><div id=\"vtab\"></div>";
-  if (vendorTab === "chats") vendorTab = "menu";
+  if (vendorTab === "chats" || vendorTab === "orders") vendorTab = "menu";
   if (vendorTab === "info") drawVendorInfo();
   if (vendorTab === "menu") drawVendorMenu();
-  if (vendorTab === "orders") drawVendorOrders();
   if (vendorTab === "posts") drawVendorPosts();
 }
 function setVendorTab(tab) { vendorTab = tab; viewVendor(); }
