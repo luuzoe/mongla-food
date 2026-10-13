@@ -62,6 +62,7 @@ const STR = {
   payMethod:         { zh: "支付方式", my: "ငွေချေနည်း", en: "Payment method" },
   payCOD:            { zh: "货到付款", my: "ပစ္စည်းရောက်မှ ငွေချေမည်", en: "Cash on delivery" },
   payTxn:            { zh: "交易单号（后6位）", my: "Transaction နံပါတ် (နောက်ဆုံး ၆ လုံး)", en: "Transaction ID (last 6 digits)" },
+  newDelivery:       { zh: "🛵 新配送订单！", my: "🛵 အမှာစာအသစ် ရပြီ!", en: "🛵 New delivery available!" },
   doLogin:            { zh: "登录", my: "ဝင်မည်", en: "Log in" },
   doRegister:         { zh: "注册账号", my: "အကောင့်ဖွင့်မည်", en: "Create account" },
   needAccount:        { zh: "还没有账号？去注册", my: "အကောင့်မရှိသေးဘူးလား။ ဖွင့်လိုက်ပါ", en: "No account yet? Register" },

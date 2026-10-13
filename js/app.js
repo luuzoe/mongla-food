@@ -222,6 +222,7 @@ async function handleSession(session) {
   if (!currentUser) {
     if (typeof _gcCh !== "undefined" && _gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} }
     if (typeof _gcCh !== "undefined") _gcCh = null;
+    if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
     window._totalUnread = 0; window._tuAt = 0; window._chatsLastMsg = {};
   }
   if (currentUser) {
@@ -2253,6 +2254,34 @@ function ensureGlobalOrderWatch() {
     .subscribe();
   ch._uid = uid;
   _goCh = ch;
+  ensureDriverOrderWatch();
+}
+/* Driver: ping when a new "ready" order appears (vendor just marked ready). */
+function ensureDriverOrderWatch() {
+  const uid = currentUser && currentUser.id;
+  if (!uid || typeof sb === "undefined") return;
+  const role = (userDoc && userDoc.role) || "customer";
+  if (role !== "driver" || !userDoc.driverApproved) {
+    if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
+    return;
+  }
+  if (window._drvCh && window._drvCh._uid === uid) return;
+  if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
+  const ch = sb.channel("driver-orders-" + uid)
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "orders", filter: "status=eq.ready" },
+      (payload) => {
+        const o = (payload && payload.new) || {};
+        if (o.driver_id) return;
+        if (location.hash !== "#/driver") {
+          try { notifyPing(t("newDelivery")); } catch (e) {}
+        } else {
+          drawDriverTab(window._driverTab || 0);
+        }
+      })
+    .subscribe();
+  ch._uid = uid;
+  window._drvCh = ch;
 }
 /* Orders tab badge: vendor = pending orders needing action;
  * customer = my orders whose status changed since I last opened Orders. */
