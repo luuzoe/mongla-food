@@ -572,21 +572,21 @@ function viewSettings() {
   const app = document.getElementById("app");
   const langs = [["my", "🇲🇲 မြန်မာ"], ["zh", "🇨🇳 中文"], ["en", "🇬🇧 English"]];
   app.innerHTML =
-    '<div class="card"><h2>⚙️ ' + esc(t("settings")) + "</h2>" +
-    '<div class="field"><label>' + esc(t("chooseLanguage")) + "</label>" +
+    '<div class="card" style="padding:10px 12px"><h2 style="font-size:16px;margin:0 0 8px">⚙️ ' + esc(t("settings")) + "</h2>" +
+    '<div class="field" style="margin-bottom:4px"><label style="font-size:12px">' + esc(t("chooseLanguage")) + "</label>" +
     langs.map(([id, label]) =>
-      '<div class="lang-opt' + (LANG === id ? " active" : "") + '" onclick="setLang(\'' + id + "')\">" +
+      '<div class="lang-opt' + (LANG === id ? " active" : "") + '" style="padding:8px 10px;font-size:13px;margin-bottom:6px" onclick="setLang(\'' + id + "')\">" +
       "<span>" + label + "</span>" + (LANG === id ? "<span>✓</span>" : "") + "</div>"
     ).join("") + "</div></div>" +
-    '<div class="card"><h3>📍 ' + esc(t("savedContact")) + "</h3>" +
-    '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><input id="s-addr" value="' + esc(getPref("addr", "")) + '"></div>' +
-    '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="s-phone" value="' + esc(getPref("phone", "")) + '"></div>' +
-    '<button class="btn" style="width:100%" onclick="savePrefs()">' + esc(t("save")) + "</button></div>" +
-    '<div class="card"><h3>🔔 ' + esc(t("notifTitle")) + "</h3>" +
-    '<div class="profile-row" style="align-items:center"><span>' + esc(t("notifDesc")) + "</span>" +
+    '<div class="card" style="padding:10px 12px"><h3 style="font-size:14px;margin:0 0 8px">📍 ' + esc(t("savedContact")) + "</h3>" +
+    '<div class="field" style="margin-bottom:8px"><label style="font-size:12px">' + esc(t("deliveryAddress")) + '</label><input id="s-addr" style="padding:8px;font-size:13px" value="' + esc(getPref("addr", "")) + '"></div>' +
+    '<div class="field" style="margin-bottom:8px"><label style="font-size:12px">' + esc(t("deliveryPhone")) + '</label><input id="s-phone" style="padding:8px;font-size:13px" value="' + esc(getPref("phone", "")) + '"></div>' +
+    '<button class="btn" style="width:100%;padding:8px" onclick="savePrefs()">' + esc(t("save")) + "</button></div>" +
+    '<div class="card" style="padding:10px 12px"><h3 style="font-size:14px;margin:0 0 6px">🔔 ' + esc(t("notifTitle")) + "</h3>" +
+    '<div class="profile-row" style="align-items:center;font-size:13px"><span>' + esc(t("notifDesc")) + "</span>" +
     '<label class="switch"><input type="checkbox" id="s-notif"' + (getPref("notif", "1") === "1" ? " checked" : "") + ' onchange="toggleNotif()"><span class="slider"></span></label></div></div>' +
-    '<div class="card"><h3>🌙 ' + esc(t("themeTitle")) + "</h3>" +
-    '<div class="profile-row" style="align-items:center"><span>' + esc(t("darkMode")) + "</span>" +
+    '<div class="card" style="padding:10px 12px"><h3 style="font-size:14px;margin:0 0 6px">🌙 ' + esc(t("themeTitle")) + "</h3>" +
+    '<div class="profile-row" style="align-items:center;font-size:13px"><span>' + esc(t("darkMode")) + "</span>" +
     '<label class="switch"><input type="checkbox" id="s-theme"' + (getPref("theme", "light") === "dark" ? " checked" : "") + ' onchange="toggleTheme()"><span class="slider"></span></label></div></div>';
 }
 function savePrefs() {
