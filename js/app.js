@@ -45,7 +45,8 @@ function mapConv(r) {
   if (!r) return r;
   return {
     id: r.id, shopId: r.shop_id, customerUid: r.customer_id, vendorUid: r.vendor_id,
-    customerName: r.customer_name, lastMessageAt: r.last_message_at, createdAt: r.created_at,
+    customerName: r.customer_name, customerAvatarUrl: r.customer_avatar_url || "",
+    lastMessageAt: r.last_message_at, createdAt: r.created_at,
     customerReadAt: r.customer_last_read_at, vendorReadAt: r.vendor_last_read_at
   };
 }
@@ -341,6 +342,7 @@ async function uploadAvatar() {
     const { error } = await sb.from("users").update({ avatar_url: url }).eq("id", currentUser.id);
     if (error) throw error;
     if (userDoc) userDoc.avatarUrl = url;
+    try { await sb.from("conversations").update({ customer_avatar_url: url }).eq("customer_id", currentUser.id); } catch (e) {}
     viewProfile();
   } catch (e) { toast("\u26A0\uFE0F " + e.message); }
 }
@@ -1039,6 +1041,7 @@ async function ensureConversation(shopId, vendorUid) {
     // denormalized so the vendor can show the customer name without
     // reading the customer's private user row (RLS forbids it)
     customer_name: (userDoc && userDoc.name) || currentUser.email,
+    customer_avatar_url: (userDoc && userDoc.avatarUrl) || null,
     last_message_at: new Date().toISOString()
   }).select("id").single();
   if (error) throw error;
@@ -1923,7 +1926,10 @@ async function renderChatList() {
   const unread = await unreadCounts(list.map(c => c.id), "vendorReadAt", convById);
   if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return []; }
   listBox.innerHTML = list.map(c =>
-    '<div class="card shop-card" data-conv="' + c.id + '"><div class="shop-emoji">👤</div>' +
+    '<div class="card shop-card" data-conv="' + c.id + '">' +
+    (c.customerAvatarUrl
+      ? '<img class="shop-thumb" src="' + esc(c.customerAvatarUrl) + '" alt="" loading="lazy">'
+      : '<div class="shop-emoji">👤</div>') +
     '<div style="flex:1"><h3>' + esc(c.customerName || "\u2026") +
     (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
     '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>").join("");
