@@ -2535,7 +2535,7 @@ async function viewAdmin() {
         (s.sample ? '<span class="badge">' + esc(t("sampleBadge")) + "</span>" : "") +
         (s.approved ? "" : ' <span class="badge" style="background:#fff3cd;color:#856404">' + esc(t("pendingShops")) + "</span>") +
         '<div class="muted">' + esc(s.ownerName || "") + " · " + esc(s.phone || "") + "</div>" +
-        '<div class="rowbtns">' +
+        '<div class="rowbtns" style="display:flex;flex-direction:row;gap:8px;align-items:center">' +
         (!s.approved ? '<button class="btn small green" onclick="adminApproveShop(\'' + s.id + "',true)\">" + esc(t("approve")) + "</button>" : "") +
         '<button class="btn small gray" onclick="adminDelShop(\'' + s.id + "')\">" + esc(t("del")) + "</button></div></div>").join("");
   } else if (adminTab === "users") {
@@ -2576,7 +2576,7 @@ async function viewAdmin() {
       (u.driverApproved ? '<span class="badge" style="background:#d4edda;color:#155724">✓</span>'
         : '<span class="badge" style="background:#fff3cd;color:#856404">' + esc(t("pendingDrivers")) + "</span>") +
       '<div class="muted">' + esc(u.email || "") + (u.phone ? " · " + esc(u.phone) : "") + "</div>" +
-      '<div class="rowbtns">' +
+      '<div class="rowbtns" style="display:flex;flex-direction:row;gap:8px;align-items:center">' +
       (!u.driverApproved ? '<button class="btn small green" data-addrv="' + u.id + '">' + esc(t("approve")) + "</button>" : "") +
       (u.driverApproved ? '<button class="btn small gray" data-rejdrv="' + u.id + '">' + esc(t("reject")) + "</button>" : "") +
       "</div></div>").join("")
