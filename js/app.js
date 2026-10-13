@@ -618,6 +618,14 @@ function dishPhotoHTML(d) {
   }
   return '<div class="dish-photo ph ph-' + esc(d.category || "all") + '"><span>' + esc(d.emoji || "🍜") + "</span></div>";
 }
+/* Just the price + order/stepper part of a dish card (re-rendered alone on qty change). */
+function dishFootHTML(d, inCart) {
+  return '<div class="dish-price">' + money(d.price) + "</div>" +
+    (inCart > 0
+      ? '<div class="qty-ctrl"><button onclick="event.stopPropagation();dishOrder(\'' + d.key + "',-1)\">−</button><b>" + inCart + "</b>" +
+        '<button onclick="event.stopPropagation();dishOrder(\'' + d.key + "',1)\">＋</button></div>"
+      : '<button class="btn small" onclick="event.stopPropagation();dishOrder(\'' + d.key + "',1)\">" + esc(t("order")) + "</button>");
+}
 function drawDishGrid() {
   const box = document.getElementById("dishGrid");
   if (!box) return;
@@ -635,43 +643,40 @@ function drawDishGrid() {
     const nm = itemName(d);
     const nm2 = LANG === "zh" ? (d.name_my || "") : (d.name_zh || "");
     const shopLabel = LANG === "en" ? (d.shop_en || d.shop_zh) : (LANG === "my" ? (d.shop_my || d.shop_zh) : d.shop_zh);
-    return '<div class="dish-card" onclick="location.hash=\'#/shop/' + d.shopId + "'\"><div class=\"dish-photo-wrap\">" + dishPhotoHTML(d) +
+    return '<div class="dish-card" data-key="' + d.key + '" onclick="location.hash=\'#/shop/' + d.shopId + "'\"><div class=\"dish-photo-wrap\">" + dishPhotoHTML(d) +
       '<button class="fav-star' + (isFav(d.key) ? ' on' : '') + '" onclick="event.stopPropagation();toggleFav(\'' + d.key + '\')">' + (isFav(d.key) ? '\u2605' : '\u2606') + '</button></div>' +
       '<div class="dish-body">' +
       '<div class="dish-name">' + esc(nm) + "</div>" +
       (nm2 ? '<div class="dish-name2">' + esc(nm2) + "</div>" : "") +
       '<div class="dish-shop">🏪 ' + esc(shopLabel) + "</div>" +
       '<div data-rp="' + d.itemId + '"></div>' +
-      '<div class="dish-foot"><div class="dish-price">' + money(d.price) + "</div>" +
-      (inCart > 0
-        ? '<div class="qty-ctrl"><button onclick="event.stopPropagation();dishOrder(\'' + d.key + "',-1)\">−</button><b>" + inCart + "</b>" +
-          '<button onclick="event.stopPropagation();dishOrder(\'' + d.key + "',1)\">＋</button></div>"
-        : '<button class="btn small" onclick="event.stopPropagation();dishOrder(\'' + d.key + "',1)\">" + esc(t("order")) + "</button>") +
-      "</div></div></div>";
+      '<div class="dish-foot">' + dishFootHTML(d, inCart) + "</div></div></div>";
   }).join("");
   loadRateBadges(box);
 }
 /* ---------- vendor posts feed (homepage + shop page) ----------
  * Post cards are compact like dish cards and orderable: tapping the order
  * button adds the post to the cart as a pseudo-dish. */
+function postFootHTML(key, p, inCart) {
+  return '<span class="dish-price">' + money(p.price) + "</span>" +
+    (inCart > 0
+      ? '<div class="qty-ctrl"><button onclick="event.stopPropagation();postOrder(\'' + key + "',-1)\">−</button><b>" + inCart + "</b>" +
+        '<button onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">＋</button></div>"
+      : '<button class="btn small" onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">" + esc(t("order")) + "</button>");
+}
 function postCardHTML(p, showShop) {
   const key = p.shopId + "__post_" + p.id;
   const inCart = cart.items[key] ? cart.items[key].qty : 0;
   const click = showShop ? ' onclick="location.hash=\'#/shop/' + p.shopId + "'\"" : "";
   const shopLabel = (showShop && p.shopName)
     ? '<div class="post-shop" onclick="event.stopPropagation();location.hash=\'#/shop/' + p.shopId + "'\">🏪 " + esc(p.shopName) + "</div>" : "";
-  return '<div class="post-card"' + click + ">" +
+  return '<div class="post-card" data-key="' + key + '"' + click + ">" +
     '<div class="post-photo" style="position:relative">' + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy">' : "📢") +
     '<button class="fav-star' + (isFav(key) ? ' on' : '') + '" onclick="event.stopPropagation();toggleFav(\'' + key + '\')">' + (isFav(key) ? '\u2605' : '\u2606') + '</button></div>' +
     '<div class="post-body">' +
     '<div class="post-text">' + esc(p.body) + "</div>" +
     shopLabel +
-    '<div class="post-foot"><span class="dish-price">' + money(p.price) + "</span>" +
-    (inCart > 0
-      ? '<div class="qty-ctrl"><button onclick="event.stopPropagation();postOrder(\'' + key + "',-1)\">−</button><b>" + inCart + "</b>" +
-        '<button onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">＋</button></div>"
-      : '<button class="btn small" onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">" + esc(t("order")) + "</button>") +
-    "</div>" +
+    '<div class="post-foot">' + postFootHTML(key, p, inCart) + "</div>" +
     '<div class="post-time">🏷️ ' + esc(catName(p.category || "foods")) + " · " + esc(fmtTime(p.createdAt)) + "</div>" +
     "</div></div>";
 }
@@ -743,7 +748,9 @@ function dishOrder(key, delta) {
     name_zh: d.name_zh, name_my: d.name_my, name_en: d.name_en, price: d.price,
     photoUrl: d.photoUrl, emoji: d.emoji, shop_zh: d.shop_zh, shop_my: d.shop_my, shop_en: d.shop_en
   };
-  drawDishGrid();
+  const foot = document.querySelector('.dish-card[data-key="' + key + '"] .dish-foot');
+  if (foot) foot.innerHTML = dishFootHTML(d, Math.max(0, qty));
+  else drawDishGrid();
   renderCartBar();
   window.scrollTo(0, y);
 }
@@ -760,8 +767,9 @@ function postOrder(key, delta) {
     name_zh: d.name_zh, name_my: d.name_my, name_en: d.name_en, price: d.price,
     photoUrl: d.photoUrl, emoji: d.emoji, shop_zh: d.shop_zh, shop_my: d.shop_my, shop_en: d.shop_en
   };
-  renderFeedPosts();
-  renderShopPosts();
+  const feet = document.querySelectorAll('.post-card[data-key="' + key + '"] .post-foot');
+  if (feet.length) feet.forEach(f => f.innerHTML = postFootHTML(key, d, Math.max(0, qty)));
+  else { renderFeedPosts(); renderShopPosts(); }
   renderCartBar();
   window.scrollTo(0, y);
 }
@@ -2093,12 +2101,17 @@ function renderTapbar() {
     tabs.push(chatTab);
   }
   refreshTotalUnread(false);
+  // Avoid rebuilding the bar when nothing changed (prevents visible flicker).
+  const sig = tabs.map(tb => tb.hash + "|" + tb.label + "|" + (tb.active ? 1 : 0) + "|" + (tb.badge || 0)).join(";");
+  if (bar.dataset.sig === sig) { syncChatTabBadge(); return; }
+  bar.dataset.sig = sig;
   bar.innerHTML = tabs.map(tb =>
     '<button class="' + (tb.active ? "active" : "") + '" data-h="' + tb.hash + '">' +
     '<span class="ic">' + tb.ic + "</span><span>" + esc(tb.label) + "</span>" +
     (tb.badge ? '<span class="cbadge">' + tb.badge + "</span>" : "") + "</button>").join("");
   bar.querySelectorAll("button").forEach(b =>
     b.onclick = () => { location.hash = b.getAttribute("data-h"); });
+  syncChatTabBadge();
 }
 
 /* ---------- admin ---------- */
