@@ -1660,6 +1660,7 @@ async function viewChats() {
   window._openChatsView = null;
   const app = document.getElementById("app");
   app.innerHTML = '<h2>💬 ' + esc(t("chat")) + '</h2>' +
+    '<div id="dbg-line" class="meta" style="font-size:11px;word-break:break-all"></div>' +
     '<div id="chats-list"><div class="center muted">\u2026</div></div><div id="chats-view"></div>';
   const col = isV ? "vendor_id" : "customer_id";
   const readKey = isV ? "vendorReadAt" : "customerReadAt";
@@ -1688,7 +1689,10 @@ async function viewChats() {
       });
       const unread = await unreadCounts(list.map(c => c.id), readKey, convById);
       window._totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+      window._dbgUnread = { convs: list.length, unread: unread, readKey: readKey };
       refreshTotalUnread(false);
+      var dbgEl = document.getElementById("dbg-line");
+      if (dbgEl) dbgEl.textContent = "DBG convs=" + list.length + " unread=" + JSON.stringify(unread) + " key=" + readKey;
       if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
       listBox.innerHTML = list.map(c => {
         const nm = isV ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
