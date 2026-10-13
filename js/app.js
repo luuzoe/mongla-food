@@ -1014,14 +1014,14 @@ async function markChatRead(convId) {
 async function mountChat(container, convId, title) {
   container.innerHTML =
     '<div class="card"><h3>💬 ' + esc(title || "") + "</h3>" +
-    '<div class="chatbox"><div class="msgs" id="msgs"></div>' +
+    '<div class="chatbox"><div class="msgs"></div>' +
     '<div class="chat-input">' +
-    '<button class="icon-btn" id="chat-attach">📎</button>' +
-    '<input id="chat-file" type="file" accept="image/*,video/*" style="display:none">' +
-    '<input id="chat-in" placeholder="' + esc(t("typeMessage")) + '">' +
-    '<button class="send-btn" id="chat-send">➤</button></div>' +
+    '<button class="icon-btn chat-attach">📎</button>' +
+    '<input class="chat-file" type="file" accept="image/*,video/*" style="display:none">' +
+    '<input class="chat-in" placeholder="' + esc(t("typeMessage")) + '">' +
+    '<button class="send-btn chat-send">➤</button></div>' +
     "</div></div>";
-  const box = document.getElementById("msgs");
+  const box = container.querySelector(".msgs");
   const render = (rows) => {
     box.innerHTML = rows.map(m => {
       const me = m.senderUid === currentUser.id;
@@ -1076,14 +1076,15 @@ async function mountChat(container, convId, title) {
       })
     .subscribe();
   unsubs.push(ch);
-  const inp = document.getElementById("chat-in");
-  inp.addEventListener("keydown", e => { if (e.key === "Enter") sendMsg(convId); });
-  document.getElementById("chat-attach").onclick = () => document.getElementById("chat-file").click();
-  document.getElementById("chat-file").onchange = () => sendMedia(convId);
-  document.getElementById("chat-send").onclick = () => sendMsg(convId);
+  const inp = container.querySelector(".chat-in");
+  const fileInp = container.querySelector(".chat-file");
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") sendMsg(convId, inp); });
+  container.querySelector(".chat-attach").onclick = () => fileInp.click();
+  fileInp.onchange = () => sendMedia(convId, fileInp);
+  container.querySelector(".chat-send").onclick = () => sendMsg(convId, inp);
 }
-async function sendMsg(convId) {
-  const inp = document.getElementById("chat-in");
+async function sendMsg(convId, inp) {
+  if (!inp) return;
   const text = (inp.value || "").trim();
   if (!text) return;
   inp.value = "";
@@ -1098,8 +1099,7 @@ async function sendMsg(convId) {
   } catch (e) { toast("⚠️ " + e.message); }
 }
 
-async function sendMedia(convId) {
-  const inp = document.getElementById("chat-file");
+async function sendMedia(convId, inp) {
   const file = inp && inp.files && inp.files[0];
   if (inp) inp.value = "";
   if (!file) return;
