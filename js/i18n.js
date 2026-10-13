@@ -168,6 +168,7 @@ const STR = {
   photoOnlyImages:   { zh: "只能上传图片文件", my: "ပုံဖိုင်သာ တင်လို့ရပါတယ်", en: "Only image files can be uploaded" },
   photoTooBig:       { zh: "照片不能超过 5MB", my: "ဓာတ်ပုံ 5MB ထက် မကြီးရပါ", en: "Photo must be smaller than 5MB" },
   uploadingPhoto:    { zh: "照片上传中…", my: "ဓာတ်ပုံ တင်နေသည်…", en: "Uploading photo…" },
+  changePhoto:       { zh: "更换头像", my: "ပုံပြောင်းရန်", en: "Change photo" },
   noPosts:           { zh: "暂无动态", my: "ပို့စ်မရှိသေးပါ", en: "No posts yet" }
 };
 

@@ -19,7 +19,7 @@ let adminTab = "shops";
 function mapUser(r) {
   if (!r) return null;
   const nm = ((r.first_name || "") + " " + (r.last_name || "")).trim();
-  return { id: r.id, role: r.role, name: nm || r.email || "", first_name: r.first_name, last_name: r.last_name, email: r.email, phone: r.phone };
+  return { id: r.id, role: r.role, name: nm || r.email || "", first_name: r.first_name, last_name: r.last_name, email: r.email, phone: r.phone, avatarUrl: r.avatar_url || "" };
 }
 function mapShop(r) {
   if (!r) return r;
@@ -325,11 +325,36 @@ let regRole = "customer";
 let authMode = "register"; // register | login
 
 /* Profile: logged in → account page; logged out → Create Account box. */
+async function uploadAvatar() {
+  const inp = document.getElementById("avatar-inp");
+  const file = inp && inp.files && inp.files[0];
+  if (!file || !currentUser) return;
+  try {
+    if (!file.type.startsWith("image/")) { toast("\u26A0\uFE0F " + t("photoOnlyImages")); return; }
+    if (file.size > 5 * 1024 * 1024) { toast("\u26A0\uFE0F " + t("photoTooBig")); return; }
+    toast("\u23F3 " + t("uploadingPhoto"));
+    const ext = ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")) || "jpg";
+    const path = currentUser.id + "/" + Date.now() + "." + ext;
+    const { error: upErr } = await sb.storage.from("avatars").upload(path, file);
+    if (upErr) throw upErr;
+    const url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    const { error } = await sb.from("users").update({ avatar_url: url }).eq("id", currentUser.id);
+    if (error) throw error;
+    if (userDoc) userDoc.avatarUrl = url;
+    viewProfile();
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+}
 function viewProfile() {
   const app = document.getElementById("app");
   if (currentUser) {
     app.innerHTML =
       '<div class="card"><h2>👤 ' + esc(t("myAccount")) + "</h2>" +
+      '<div class="center" style="margin-bottom:10px">' +
+      ((userDoc && userDoc.avatarUrl)
+        ? '<img src="' + esc(userDoc.avatarUrl) + '" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">'
+        : '<div style="width:96px;height:96px;border-radius:50%;background:#fce4ec;display:inline-flex;align-items:center;justify-content:center;font-size:44px">👤</div>') +
+      '<div style="margin-top:8px"><button class="btn small" onclick="document.getElementById(\'avatar-inp\').click()">' + esc(t("changePhoto")) + '</button>' +
+      '<input type="file" id="avatar-inp" accept="image/*" style="display:none" onchange="uploadAvatar()"></div></div>' +
       '<div class="profile-row"><span class="k">' + esc(t("yourName")) + "</span>" +
       '<span id="p-name-row" style="display:flex;gap:6px;align-items:center">' +
       "<span>" + esc((userDoc && userDoc.name) || currentUser.email) + "</span>" +
