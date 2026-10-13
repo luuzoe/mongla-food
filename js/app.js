@@ -1117,7 +1117,7 @@ async function placeShopOrder(shopId, items, delivery) {
     items: items, total_yuan: total,
     delivery_address: delivery.address, customer_phone: delivery.phone,
     note: delivery.note || null, delivery_fee_yuan: fee,
-    payment_method: delivery.payMethod || "cod", payment_txn: delivery.payTxn || null,
+    payment_method: delivery.payMethod || "cod", payment_txn: delivery.payTxn || "",
     status: "pending", conversation_id: null
   }).select().single();
   if (oErr) throw oErr;
