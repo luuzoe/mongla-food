@@ -112,6 +112,8 @@ const STR = {
   save:               { zh: "保存", my: "သိမ်းမည်", en: "Save" },
   del:                { zh: "删除", my: "ဖျက်မည်", en: "Delete" },
   confirmDelete:      { zh: "确定删除吗？", my: "ဖျက်မှာသေချာပါသလား။", en: "Delete this?" },
+  clearChatConfirm:   { zh: "确定清空此聊天的所有消息吗？", my: "ဒီစကားပြောခန်းက စာတွေအားလုံး ဖျက်မှာသေချာလား။", en: "Clear all messages in this chat?" },
+  chatCleared:        { zh: "聊天记录已清空", my: "စာတွေ ဖျက်ပြီးပြီ", en: "Chat cleared" },
   incomingChats:      { zh: "顾客聊天", my: "ဝယ်သူများနဲ့ စကားပြောခန်း", en: "Customer chats" },
   incomingOrders:     { zh: "收到的订单", my: "ရရှိထားသော အမှာစာများ", en: "Incoming orders" },
   noChats:            { zh: "暂无聊天", my: "စကားပြောခန်းမရှိသေးပါ", en: "No chats yet" },

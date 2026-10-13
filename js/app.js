@@ -1651,6 +1651,32 @@ async function delMenuItem(itemId) {
     drawVendorMenu();
   } catch (e) { toast("⚠️ " + e.message); }
 }
+/* Long-press (600ms) helper: fires fn once; suppresses the tap that follows. */
+function addLongPress(el, fn) {
+  let t = null;
+  const start = () => {
+    if (t) return;
+    t = setTimeout(() => { t = null; el.dataset.lp = "1"; fn(); }, 600);
+  };
+  const cancel = () => { if (t) { clearTimeout(t); t = null; } };
+  el.addEventListener("touchstart", start, { passive: true });
+  el.addEventListener("touchend", cancel);
+  el.addEventListener("touchmove", cancel);
+  el.addEventListener("mousedown", start);
+  el.addEventListener("mouseup", cancel);
+  el.addEventListener("mouseleave", cancel);
+}
+/* Clear every message in a conversation (both sides see it emptied). */
+async function clearConversation(convId) {
+  if (!convId) return;
+  if (!(await confirmDlg(t("clearChatConfirm")))) return;
+  try {
+    const { error } = await sb.from("messages").delete().eq("conversation_id", convId);
+    if (error) throw error;
+    toast("\uD83D\uDDD1\uFE0F " + t("chatCleared"));
+  } catch (e) { toast("\u26A0\uFE0F " + (e.message || e)); }
+}
+
 /* ---------- full-page chat (Messenger/TikTok style) ---------- */
 async function viewChatPage(convId) {
   if (needLogin()) return;
@@ -1733,15 +1759,18 @@ async function viewChats() {
           (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
           '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>";
       }).join("");
-      listBox.querySelectorAll("[data-conv]").forEach(el =>
+      listBox.querySelectorAll("[data-conv]").forEach(el => {
         el.onclick = () => {
+          if (el.dataset.lp) { el.dataset.lp = ""; return; }
           const b = el.querySelector(".ubadge");
           const n = b ? Number(b.textContent) || 0 : 0;
           if (b) b.remove();
           if (n) window._totalUnread = Math.max(0, (window._totalUnread || 0) - n);
           const cid = el.getAttribute("data-conv");
           location.hash = "#/chat/" + cid;
-        });
+        };
+        addLongPress(el, () => clearConversation(el.getAttribute("data-conv")));
+      });
     } catch (e) { listBox.innerHTML = "\u26A0\uFE0F " + esc(e.message); }
   };
   await render();
@@ -1839,10 +1868,13 @@ async function renderChatList() {
     '<div style="flex:1"><h3>' + esc(c.customerName || "\u2026") +
     (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
     '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>").join("");
-  listBox.querySelectorAll("[data-conv]").forEach(el =>
+  listBox.querySelectorAll("[data-conv]").forEach(el => {
     el.onclick = () => {
+      if (el.dataset.lp) { el.dataset.lp = ""; return; }
       location.hash = "#/chat/" + el.getAttribute("data-conv");
-    });
+    };
+    addLongPress(el, () => clearConversation(el.getAttribute("data-conv")));
+  });
   return list.map(c => c.id);
 }
 async function drawVendorOrders() {
