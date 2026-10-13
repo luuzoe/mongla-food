@@ -250,6 +250,7 @@ async function handleSession(session) {
 function renderHeader() {
   renderTapbar();
   ensureGlobalChatWatch();
+  ensureGlobalOrderWatch();
   document.querySelectorAll("[data-i18n]").forEach(el => {
     el.textContent = t(el.getAttribute("data-i18n"));
   });
@@ -2054,6 +2055,31 @@ async function refreshTotalUnread(force) {
   window._totalUnread = n;
   syncChatTabBadge();
   return n;
+}
+/* One silent global watcher: any new/changed order refreshes the orders
+ * tab badge wherever I am in the app (vendor also gets a ping on new orders). */
+let _goCh = null;
+function ensureGlobalOrderWatch() {
+  const uid = currentUser && currentUser.id;
+  if (!uid || typeof sb === "undefined") return;
+  if (_goCh && _goCh._uid === uid) return;
+  if (_goCh) { try { sb.removeChannel(_goCh); } catch (e) {} _goCh = null; }
+  const role = (userDoc && userDoc.role) || "customer";
+  const isV = role === "vendor" || role === "admin";
+  const col = isV ? "vendor_id" : "customer_id";
+  const ch = sb.channel("global-orders-" + uid)
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "orders", filter: col + "=eq." + uid },
+      (payload) => {
+        if (payload && payload.eventType === "INSERT" && isV &&
+            location.hash !== "#/vendor/orders") {
+          try { notifyPing("\uD83D\uDD14 " + t("newOrder")); } catch (e) {}
+        }
+        refreshOrderBadge(true);
+      })
+    .subscribe();
+  ch._uid = uid;
+  _goCh = ch;
 }
 /* Orders tab badge: vendor = pending orders needing action;
  * customer = my orders whose status changed since I last opened Orders. */
