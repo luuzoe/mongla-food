@@ -2497,14 +2497,14 @@ async function drawDriverTab(i) {
       const shAddr = sh.address_zh || sh.address_my || "";
       const items = (o.items || []).map(it =>
         "<div>\u2022 " + esc(it.name_my || it.name_zh || it.name_en || "") + " \u00d7 " + (it.qty || 0) + "</div>").join("");
-      return '<div class="card"><b>' + money(o.total) + '</b> <span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span>" +
-      '<div style="margin:6px 0">' + items + "</div>" +
-      (shAddr ? '<div class="muted">\uD83C\uDFEA ' + esc(shAddr) + (sh.phone ? " \u00b7 " + esc(sh.phone) : "") + "</div>" : "") +
-      '<div class="muted">\uD83D\uDCCD ' + esc(o.deliveryAddress || "") + "</div>" +
-      '<div class="muted">\uD83D\uDC64 ' + esc(o.customerName || "") + (o.customerPhone ? ' \u00b7 <a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a>" : "") + "</div>" +
-      '<div class="muted">' + esc(fmtTime(o.createdAt)) + "</div>" +
-      (i === 0 ? '<div class="rowbtns" style="display:flex;gap:8px"><button class="btn small green" data-acc="' + o.id + '">' + esc(t("acceptDelivery")) + "</button></div>"
-        : i === 1 ? '<div class="rowbtns" style="display:flex;gap:8px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + "</button></div>" : "") +
+      return '<div class="card" style="padding:8px 10px;font-size:13px;line-height:1.5"><div style="display:flex;justify-content:space-between;align-items:center"><b>' + money(o.total) + '</b> <span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span></div>" +
+      '<div>' + items + "</div>" +
+      '<div class="muted" style="font-size:12px">' +
+      (shAddr ? "\uD83C\uDFEA " + esc(shAddr) + (sh.phone ? " \u00b7 " + esc(sh.phone) : "") + "<br>" : "") +
+      "\uD83D\uDCCD " + esc(o.deliveryAddress || "") + "<br>" +
+      "\uD83D\uDC64 " + esc(o.customerName || "") + (o.customerPhone ? ' \u00b7 <a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a>" : "") + " \u00b7 " + esc(fmtTime(o.createdAt)) + "</div>" +
+      (i === 0 ? '<div style="margin-top:6px"><button class="btn small green" data-acc="' + o.id + '">' + esc(t("acceptDelivery")) + "</button></div>"
+        : i === 1 ? '<div style="margin-top:6px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + "</button></div>" : "") +
       "</div>";
     }).join("");
     box.querySelectorAll("[data-acc]").forEach(b => b.onclick = () => acceptDelivery(b.getAttribute("data-acc")));
