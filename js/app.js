@@ -1181,6 +1181,30 @@ async function checkoutAll() {
     }
     if (!payTxn) { toast("⚠️ " + t("fillTxn")); window._checkingOut = false; return; }
   }
+  // re-validate items are still available (vendor may have marked sold-out)
+  const allItemIds = [...new Set(Object.values(cart.items).map(it => it.itemId).filter(id => id && !String(id).startsWith("post_")))];
+  if (allItemIds.length) {
+    try {
+      const { data } = await sb.from("menu_items").select("id,available").in("id", allItemIds);
+      const availMap = {};
+      (data || []).forEach(m => { availMap[m.id] = m.available !== false; });
+      const soldOut = Object.values(cart.items).filter(it => {
+        const id = it.itemId;
+        return id && !String(id).startsWith("post_") && availMap[id] === false;
+      });
+      if (soldOut.length) {
+        soldOut.forEach(it => {
+          const k = Object.keys(cart.items).find(k => cart.items[k] === it);
+          if (k) delete cart.items[k];
+        });
+        try { if (typeof drawCart === "function") drawCart(); } catch (err) {}
+        try { if (typeof renderCartBar === "function") renderCartBar(); } catch (err) {}
+        toast("⚠️ " + t("itemsDropped"));
+        window._checkingOut = false;
+        return;
+      }
+    } catch (e) {}
+  }
   if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) { window._checkingOut = false; return; }
   const succeeded = [];
   try {
@@ -2265,7 +2289,7 @@ async function drawVendorOrders(skipChannel) {
   }
   box.innerHTML = '<div class="center muted">…</div>';
   const [allRes, listRes] = await Promise.all([
-    sb.from("orders").select("id,total,created_at").eq("vendor_id", currentUser.id).eq("status", "done"),
+    sb.from("orders").select("id,total_yuan,created_at").eq("vendor_id", currentUser.id).eq("status", "done"),
     sb.from("orders").select("*").eq("vendor_id", currentUser.id).eq("vendor_archived", false).order("created_at", { ascending: false })
   ]);
   if (listRes.error) { box.innerHTML = "⚠️ " + esc(listRes.error.message); return; }
@@ -2273,11 +2297,11 @@ async function drawVendorOrders(skipChannel) {
   if (!list.length && !(allRes.data || []).length) { box.innerHTML = '<div class="card center muted">' + esc(t("noOrders")) + "</div>"; return; }
   // sales summary (from ALL done orders, archived included)
   const allDone = allRes.data || [];
-  const totalSales = allDone.reduce((a, o) => a + (Number(o.total) || 0), 0);
+  const totalSales = allDone.reduce((a, o) => a + (Number(o.total_yuan) || 0), 0);
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
   const yangonDay = (iso) => { try { return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" }); } catch (e) { return ""; } };
   const todaySales = allDone.filter(o => yangonDay(o.created_at) === todayStr)
-    .reduce((a, o) => a + (Number(o.total) || 0), 0);
+    .reduce((a, o) => a + (Number(o.total_yuan) || 0), 0);
   const salesHtml = '<div class="card" style="background:#e8f5e9;text-align:center">' +
     '<div style="display:flex;justify-content:space-around">' +
     '<div><div style="font-size:12px;color:#666">' + esc(t("todaySales")) + '</div><div style="font-size:18px;font-weight:800;color:#2e7d32">' + money(todaySales) + "</div></div>" +
@@ -2721,10 +2745,10 @@ async function drawDriverTab(i) {
     if (i === 2) {
       let allDone = [];
       try {
-        const ar = await sb.from("orders").select("delivery_fee").eq("driver_id", currentUser.id).eq("status", "done");
+        const ar = await sb.from("orders").select("delivery_fee_yuan").eq("driver_id", currentUser.id).eq("status", "done");
         allDone = ar.data || [];
       } catch (e) {}
-      const totalFee = allDone.reduce((a, o) => a + (Number(o.delivery_fee) || 0), 0);
+      const totalFee = allDone.reduce((a, o) => a + (Number(o.delivery_fee_yuan) || 0), 0);
       summaryHtml = '<div class="card" style="background:#e8f5e9;text-align:center">' +
         '<div style="font-size:13px;color:#666">' + esc(t("totalDeliveries")) + ": <b>" + allDone.length + "</b></div>" +
         '<div style="font-size:20px;font-weight:800;color:#2e7d32">💰 ' + money(totalFee) + "</div>" +
