@@ -1763,11 +1763,12 @@ async function viewChats() {
       if (error) throw error;
       const list = (data || []).map(mapConv);
       let names = {};
+      let shopPhotos = {};
       if (!isV) {
         const sids = [...new Set(list.map(c => c.shopId).filter(Boolean))];
         if (sids.length) {
-          const { data: shops } = await sb.from("shops").select("id,name_zh,name_my,name_en").in("id", sids);
-          (shops || []).forEach(x => names[x.id] = shopName(mapShop(x)));
+          const { data: shops } = await sb.from("shops").select("id,name_zh,name_my,name_en,photo_url").in("id", sids);
+          (shops || []).forEach(x => { names[x.id] = shopName(mapShop(x)); if (x.photo_url) shopPhotos[x.id] = x.photo_url; });
         }
       }
       const convById = {};
@@ -1783,7 +1784,10 @@ async function viewChats() {
       if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
       listBox.innerHTML = list.map(c => {
         const nm = isV ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
-        return '<div class="card shop-card" data-conv="' + c.id + '" data-nm="' + esc(nm) + '"><div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>" +
+        const avatar = !isV && shopPhotos[c.shopId]
+          ? '<img class="shop-thumb" src="' + esc(shopPhotos[c.shopId]) + '" alt="" loading="lazy">'
+          : '<div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>";
+        return '<div class="card shop-card" data-conv="' + c.id + '" data-nm="' + esc(nm) + '">' + avatar +
           '<div style="flex:1"><h3>' + esc(nm) +
           (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
           '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>";
