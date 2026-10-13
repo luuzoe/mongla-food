@@ -1660,7 +1660,6 @@ async function viewChats() {
   window._openChatsView = null;
   const app = document.getElementById("app");
   app.innerHTML = '<h2>💬 ' + esc(t("chat")) + '</h2>' +
-    '<div id="dbg-line" class="meta" style="font-size:11px;word-break:break-all"></div>' +
     '<div id="chats-list"><div class="center muted">\u2026</div></div><div id="chats-view"></div>';
   const col = isV ? "vendor_id" : "customer_id";
   const readKey = isV ? "vendorReadAt" : "customerReadAt";
@@ -1689,10 +1688,8 @@ async function viewChats() {
       });
       const unread = await unreadCounts(list.map(c => c.id), readKey, convById);
       window._totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
-      window._dbgUnread = { convs: list.length, unread: unread, readKey: readKey };
+      syncChatTabBadge();
       refreshTotalUnread(false);
-      var dbgEl = document.getElementById("dbg-line");
-      if (dbgEl) dbgEl.textContent = "DBG convs=" + list.length + " unread=" + JSON.stringify(unread) + " key=" + readKey;
       if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
       listBox.innerHTML = list.map(c => {
         const nm = isV ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
@@ -1956,21 +1953,24 @@ async function countTotalUnread() {
     return Object.values(counts).reduce((a, b) => a + b, 0);
   } catch (e) { return 0; }
 }
+function syncChatTabBadge() {
+  const n = window._totalUnread || 0;
+  const btn = document.querySelector('#tapbar [data-h="#/chats"]');
+  if (!btn) return;
+  let b = btn.querySelector(".cbadge");
+  if (n > 0) {
+    if (!b) { b = document.createElement("span"); b.className = "cbadge"; btn.appendChild(b); }
+    b.textContent = n;
+  } else if (b) b.remove();
+}
 async function refreshTotalUnread(force) {
-  if (!currentUser) { window._totalUnread = 0; return 0; }
+  if (!currentUser) { window._totalUnread = 0; syncChatTabBadge(); return 0; }
   const now = Date.now();
-  if (!force && window._tuAt && now - window._tuAt < 20000) return window._totalUnread || 0;
+  if (!force && window._tuAt && now - window._tuAt < 20000) { syncChatTabBadge(); return window._totalUnread || 0; }
   window._tuAt = now;
   const n = await countTotalUnread();
   window._totalUnread = n;
-  const btn = document.querySelector('#tapbar [data-h="#/chats"]');
-  if (btn) {
-    let b = btn.querySelector(".cbadge");
-    if (n > 0) {
-      if (!b) { b = document.createElement("span"); b.className = "cbadge"; btn.appendChild(b); }
-      b.textContent = n;
-    } else if (b) b.remove();
-  }
+  syncChatTabBadge();
   return n;
 }
 /* One silent global watcher: any new message in any of my conversations
