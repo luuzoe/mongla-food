@@ -1042,8 +1042,14 @@ async function unreadCounts(convIds, readKey, convById) {
 }
 async function markChatRead(convId) {
   try {
-    const role = (userDoc && userDoc.role) || "customer";
-    const col = role === "vendor" ? "vendor_last_read_at" : "customer_last_read_at";
+    if (!currentUser) return;
+    // Decide the column from the conversation row itself (robust even if
+    // the cached userDoc role is stale or missing).
+    const { data: conv } = await sb.from("conversations")
+      .select("customer_id,vendor_id").eq("id", convId).single();
+    if (!conv) return;
+    const col = (conv.vendor_id && conv.vendor_id === currentUser.id)
+      ? "vendor_last_read_at" : "customer_last_read_at";
     const patch = {}; patch[col] = new Date().toISOString();
     await sb.from("conversations").update(patch).eq("id", convId);
   } catch (e) {}
