@@ -1109,7 +1109,12 @@ async function viewOrders() {
         shops[o.shopId] = sd ? mapShop(sd) : {};
       }
     }
-    box.innerHTML = list.map(o => orderCard(o, shops[o.shopId], false)).join("");
+    window._orderChatInfo = {};
+    box.innerHTML = list.map(o => {
+      const sh = shops[o.shopId] || {};
+      window._orderChatInfo[o.id] = { shopId: o.shopId, vendorUid: o.vendorUid, title: shopName(sh) };
+      return orderCard(o, sh, false);
+    }).join("");
   } catch (e) {
     document.getElementById("olist").innerHTML = "⚠️ " + esc(e.message);
   }
@@ -1124,7 +1129,20 @@ async function viewOrders() {
     .subscribe();
   unsubs.push(ch);
 }
-function chatWithShop(shopId) { shopTab = "chat"; location.hash = "#/shop/" + shopId; }
+async function toggleOrderChat(orderId) {
+  if (needLogin()) return;
+  const box = document.getElementById("oc-" + orderId);
+  if (!box) return;
+  if (box.dataset.open === "1") { box.innerHTML = ""; box.dataset.open = ""; return; }
+  const info = (window._orderChatInfo || {})[orderId];
+  if (!info) return;
+  box.dataset.open = "1";
+  box.innerHTML = '<div class="card"><div class="center muted">\u2026</div></div>';
+  try {
+    const convId = await ensureConversation(info.shopId, info.vendorUid);
+    mountChat(box, convId, info.title);
+  } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message || e) + "</div>"; }
+}
 function orderCard(o, shop, isVendor) {
   const items = (o.items || []).map(it =>
     "<div>" + esc(itemName(it)) +
@@ -1137,7 +1155,7 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
   } else {
-    btns += '<button class="btn small" onclick="chatWithShop(\'' + o.shopId + "')\">" + "💬 " + esc(t("chat")) + "</button>";
+    btns += '<button class="btn small" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + "</button>";
     if (o.status === "pending")
       btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
   }
@@ -1153,7 +1171,8 @@ function orderCard(o, shop, isVendor) {
     (o.deliveryFee > 0
       ? '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(o.deliveryFee) + "</b></div>" : "") +
     "<b>" + esc(t("total")) + ": " + money(o.total) + "</b>" +
-    (btns ? '<div class="rowbtns">' + btns + "</div>" : "") + "</div>";
+    (btns ? '<div class="rowbtns">' + btns + "</div>" : "") +
+    (isVendor ? "" : '<div id="oc-' + o.id + '" style="margin-top:8px"></div>') + "</div>";
 }
 async function setStatus(orderId, convId, status) {
   try {
