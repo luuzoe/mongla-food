@@ -2520,7 +2520,6 @@ async function viewAdmin() {
     '<div class="tab' + (adminTab === "orders" ? " active" : "") + '" onclick="setAdminTab(\'orders\')"><span class="tic">' + ICONS.box + "</span> " + esc(t("allOrders")) + "</div>" +
     '<div class="tab' + (adminTab === "reports" ? " active" : "") + '" onclick="setAdminTab(\'reports\')"><span class="tic">' + ICONS.flag + "</span> " + esc(t("reports")) + "</div>" +
     '<div class="tab' + (adminTab === "drivers" ? " active" : "") + '" onclick="setAdminTab(\'drivers\')">🛵 ' + esc(t("pendingDrivers")) + "</div>" +
-    '<div class="tab' + (adminTab === "drivers" ? " active" : "") + '" onclick="setAdminTab(\'drivers\')">🛵 ' + esc(t("pendingDrivers")) + "</div>" +
     "</div><div id=\"atab\"></div>";
   const box = document.getElementById("atab");
   if (adminTab === "shops") {
