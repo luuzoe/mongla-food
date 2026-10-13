@@ -83,6 +83,7 @@ const STR = {
   todaySales:        { zh: "今日销售额", my: "ဒီနေ့ ရောင်းအား", en: "Today's sales" },
   totalSales:        { zh: "总销售额", my: "စုစုပေါင်း ရောင်းအား", en: "Total sales" },
   totalOrders:       { zh: "完成订单", my: "ပြီးစီးတဲ့ အမှာစာ", en: "Completed orders" },
+  shopClosedDesc:    { zh: "商家休息中，暂时无法下单", my: "ဆိုင်ပိတ်ထားလို့ အခု မှာလို့မရဘူး", en: "Shop is closed, ordering unavailable right now" },
   payTxn:            { zh: "交易单号（后6位）", my: "Transaction နံပါတ် (နောက်ဆုံး ၆ လုံး)", en: "Transaction ID (last 6 digits)" },
   newDelivery:       { zh: "🛵 新配送订单！", my: "🛵 အမှာစာအသစ် ရပြီ!", en: "🛵 New delivery available!" },
   history:           { zh: "历史", my: "မှတ်တမ်း", en: "History" },

@@ -916,7 +916,9 @@ async function viewShop(id) {
       ? '<img src="' + esc(s.photo_url) + '" alt="" style="width:46px;height:46px;object-fit:cover;border-radius:50%;flex-shrink:0">'
       : esc(s.emoji || "🍜")) +
     "<span>" + esc(shopName(s)) +
-    (s.sample ? '<span class="badge">' + esc(t("sampleBadge")) + "</span>" : "") + "</span></h2>" +
+    (s.sample ? '<span class="badge">' + esc(t("sampleBadge")) + "</span>" : "") + "</span>" +
+    '<span class="badge" style="background:' + (s.isOpen ? "#e8f5e9;color:#2e7d32" : "#ffebee;color:#c62828") + '">' +
+    (s.isOpen ? "🟢 " + esc(t("shopOpen")) : "🔴 " + esc(t("shopClosed"))) + "</span></h2>" +
     '<div class="profile-row"><span class="k">' + esc(t("ownerName")) + "</span><span>" + esc(s.ownerName || "-") + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("address")) + "</span><span>" + esc(addr) + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("phone")) + "</span><span><a href=\"tel:" + esc(s.phone || "") + "\">" + esc(s.phone || "-") + "</a></span></div>" +
@@ -946,7 +948,8 @@ async function drawMenuTab(id, s) {
     items = (data || []).map(mapItem).filter(x => x.available !== false);
   } catch (e) { body.innerHTML = "⚠️ " + esc(e.message); return; }
   items.forEach(it => regDish(id, s, it));
-  body.innerHTML = '<div class="card">' + items.map(it => {
+  const closedNotice = (!s.isOpen ? '<div class="notice" style="margin-bottom:10px">🔴 ' + esc(t("shopClosed")) + " — " + esc(t("shopClosedDesc")) + "</div>" : "");
+  body.innerHTML = closedNotice + '<div class="card">' + items.map(it => {
     const key = id + "__" + it.id;
     const inCart = cart.items[key] ? cart.items[key].qty : 0;
     return '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + ' <span data-rp="' + it.id + '"></span></div>' +
