@@ -45,7 +45,8 @@ function mapConv(r) {
   if (!r) return r;
   return {
     id: r.id, shopId: r.shop_id, customerUid: r.customer_id, vendorUid: r.vendor_id,
-    customerName: r.customer_name, lastMessageAt: r.last_message_at, createdAt: r.created_at
+    customerName: r.customer_name, lastMessageAt: r.last_message_at, createdAt: r.created_at,
+    customerReadAt: r.customer_last_read_at, vendorReadAt: r.vendor_last_read_at
   };
 }
 function mapMsg(r) {
@@ -979,6 +980,37 @@ async function drawChatTab(shopId, shop) {
   const convId = await ensureConversation(shopId, shop.ownerUid);
   mountChat(body, convId, shopName(shop));
 }
+/* unread badges: per-conversation counts of messages from the other side
+ * newer than the viewer's last-read timestamp. */
+async function unreadCounts(convIds, readKey, convById) {
+  const counts = {};
+  const ids = (convIds || []).filter(Boolean);
+  if (!ids.length || !currentUser) return counts;
+  try {
+    const { data, error } = await sb.from("messages")
+      .select("conversation_id,created_at,sender_id")
+      .in("conversation_id", ids)
+      .neq("sender_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error || !data) return counts;
+    for (const m of data) {
+      const c = convById[m.conversation_id] || {};
+      const readAt = c[readKey] || null;
+      if (!readAt || new Date(m.created_at) > new Date(readAt))
+        counts[m.conversation_id] = (counts[m.conversation_id] || 0) + 1;
+    }
+  } catch (e) {}
+  return counts;
+}
+async function markChatRead(convId) {
+  try {
+    const role = (userDoc && userDoc.role) || "customer";
+    const col = role === "vendor" ? "vendor_last_read_at" : "customer_last_read_at";
+    const patch = {}; patch[col] = new Date().toISOString();
+    await sb.from("conversations").update(patch).eq("id", convId);
+  } catch (e) {}
+}
 async function mountChat(container, convId, title) {
   container.innerHTML =
     '<div class="card"><h3>💬 ' + esc(title || "") + "</h3>" +
@@ -1026,12 +1058,14 @@ async function mountChat(container, convId, title) {
     render((data || []).map(mapMsg));
   };
   await load();
+  markChatRead(convId);
   // realtime: reload messages whenever a new one arrives in this conversation
   const ch = sb.channel("chat-" + convId)
     .on("postgres_changes",
       { event: "INSERT", schema: "public", table: "messages", filter: "conversation_id=eq." + convId },
       (payload) => {
         load();
+        markChatRead(convId);
         const m = payload && payload.new;
         if (m && m.sender_id !== currentUser.id) {
             const preview = m.kind === "image" ? "📷 " + t("photoSent")
@@ -1095,6 +1129,7 @@ async function viewOrders() {
   if (needLogin()) return;
   const app = document.getElementById("app");
   app.innerHTML = "<h2>📦 " + esc(t("orders")) + '</h2><div id="olist"><div class="center muted">…</div></div>';
+  window._openOrderChat = null;
   try {
     const { data, error } = await sb.from("orders").select("*")
       .eq("customer_id", currentUser.id).order("created_at", { ascending: false });
@@ -1110,11 +1145,51 @@ async function viewOrders() {
       }
     }
     window._orderChatInfo = {};
+    window._convToOrder = {};
+    const convIds = list.map(o => o.convId).filter(Boolean);
+    let convById = {};
+    if (convIds.length) {
+      try {
+        const { data: convs } = await sb.from("conversations").select("id,customer_last_read_at").in("id", convIds);
+        (convs || []).forEach(c => convById[c.id] = { customerReadAt: c.customer_last_read_at });
+      } catch (e) {}
+    }
+    window._unreadByConv = await unreadCounts(convIds, "customerReadAt", convById);
     box.innerHTML = list.map(o => {
       const sh = shops[o.shopId] || {};
       window._orderChatInfo[o.id] = { shopId: o.shopId, vendorUid: o.vendorUid, title: shopName(sh) };
+      if (o.convId) window._convToOrder[o.convId] = o.id;
       return orderCard(o, sh, false);
     }).join("");
+      // realtime: vendor replies -> bump the chat badge live (ping unless its chatbox is open)
+      if (convIds.length) {
+        const mch = sb.channel("my-msgs-" + currentUser.id)
+          .on("postgres_changes",
+            { event: "INSERT", schema: "public", table: "messages", filter: "conversation_id=in.(" + convIds.join(",") + ")" },
+            (payload) => {
+              const m = payload && payload.new;
+              if (!m || m.sender_id === currentUser.id) return;
+              if (window._openOrderChat === m.conversation_id) return; // seen in open chatbox
+              const cur = (((window._unreadByConv || {})[m.conversation_id] || 0) + 1);
+              window._unreadByConv = window._unreadByConv || {};
+              window._unreadByConv[m.conversation_id] = cur;
+              const oid = (window._convToOrder || {})[m.conversation_id];
+              if (oid) {
+                const btn = document.querySelector('[data-chatbtn="' + oid + '"]');
+                if (btn) {
+                  let b = btn.querySelector(".ubadge");
+                  if (!b) { b = document.createElement("span"); b.className = "ubadge"; btn.appendChild(b); }
+                  b.textContent = cur;
+                }
+              }
+              const preview = m.kind === "image" ? "📷 " + t("photoSent")
+                : m.kind === "video" ? "🎥 " + t("videoSent")
+                : (m.body || "").slice(0, 40);
+              notifyPing("💬 " + t("newMessage") + ": " + preview);
+            })
+          .subscribe();
+        unsubs.push(mch);
+      }
   } catch (e) {
     document.getElementById("olist").innerHTML = "⚠️ " + esc(e.message);
   }
@@ -1133,13 +1208,17 @@ async function toggleOrderChat(orderId) {
   if (needLogin()) return;
   const box = document.getElementById("oc-" + orderId);
   if (!box) return;
-  if (box.dataset.open === "1") { box.innerHTML = ""; box.dataset.open = ""; return; }
+  if (box.dataset.open === "1") { box.innerHTML = ""; box.dataset.open = ""; window._openOrderChat = null; return; }
   const info = (window._orderChatInfo || {})[orderId];
   if (!info) return;
   box.dataset.open = "1";
   box.innerHTML = '<div class="card"><div class="center muted">\u2026</div></div>';
   try {
     const convId = await ensureConversation(info.shopId, info.vendorUid);
+    window._openOrderChat = convId;
+    if (window._unreadByConv) window._unreadByConv[convId] = 0;
+    const badge = document.querySelector('[data-chatbtn="' + orderId + '"] .ubadge');
+    if (badge) badge.remove();
     mountChat(box, convId, info.title);
   } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message || e) + "</div>"; }
 }
@@ -1155,7 +1234,8 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
   } else {
-    btns += '<button class="btn small" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + "</button>";
+    const uc = ((window._unreadByConv || {})[o.convId] || 0);
+    btns += '<button class="btn small" data-chatbtn="' + o.id + '" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + (uc ? ' <span class="ubadge">' + uc + "</span>" : "") + "</button>";
     if (o.status === "pending")
       btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
   }
@@ -1373,28 +1453,72 @@ async function delMenuItem(itemId) {
 }
 async function drawVendorChats() {
   const box = document.getElementById("vtab");
-  box.innerHTML = '<div class="center muted">…</div>';
-  const { data, error } = await sb.from("conversations").select("*")
-    .eq("vendor_id", currentUser.id).order("last_message_at", { ascending: false });
-  if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
-  const list = (data || []).map(mapConv);
-  if (!list.length) { box.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
-  box.innerHTML = '<div id="chatlist">' + list.map(c =>
-    '<div class="card shop-card" data-conv="' + c.id + '"><div class="shop-emoji">👤</div>' +
-    "<div><h3>" + esc(c.customerName || "…") + "</h3>" +
-    '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>").join("") + '</div><div id="chatview"></div>';
-  box.querySelectorAll("[data-conv]").forEach(el =>
-    el.onclick = () => mountChat(document.getElementById("chatview"), el.getAttribute("data-conv"), "💬"));
-  // realtime: new customer chats pop in live
+  box.innerHTML = '<div id="chatlist"><div class="center muted">\u2026</div></div><div id="chatview"></div>';
+  await renderChatList();
+  // realtime: new chats + new messages (last_message_at changes) pop in live.
+  // NOTE: only re-renders the LIST so an open #chatview is never wiped.
   const ch = sb.channel("vendor-chats-" + currentUser.id)
     .on("postgres_changes",
       { event: "*", schema: "public", table: "conversations", filter: "vendor_id=eq." + currentUser.id },
       (payload) => {
-        if (payload && payload.eventType === "INSERT") notifyPing("💬 " + t("newChat"));
-        stopListeners(); drawVendorChats();
+        const n = payload && payload.new;
+        if (payload && payload.eventType === "INSERT" && n) {
+          window._vendorLastMsgAt = window._vendorLastMsgAt || {};
+          window._vendorLastMsgAt[n.id] = n.last_message_at;
+          notifyPing("💬 " + t("newChat"));
+        } else if (payload && payload.eventType === "UPDATE" && n) {
+          const seen = (window._vendorLastMsgAt || {})[n.id];
+          if (seen !== n.last_message_at) {
+            window._vendorLastMsgAt = window._vendorLastMsgAt || {};
+            window._vendorLastMsgAt[n.id] = n.last_message_at;
+            // confirm the latest message is from the customer before pinging
+            sb.from("messages").select("sender_id,body,kind").eq("conversation_id", n.id)
+              .order("created_at", { ascending: false }).limit(1).maybeSingle()
+              .then(({ data: lm }) => {
+                if (lm && lm.sender_id !== currentUser.id) {
+                  const c = (window._vendorConvs || {})[n.id] || {};
+                  const preview = lm.kind === "image" ? "📷 " + t("photoSent")
+                    : lm.kind === "video" ? "🎥 " + t("videoSent")
+                    : (lm.body || "").slice(0, 40);
+                  notifyPing("💬 " + (c.customerName ? c.customerName + ": " : "") + preview);
+                }
+              });
+          }
+        }
+        renderChatList();
       })
     .subscribe();
   unsubs.push(ch);
+}
+/* Render only the conversation list (badges included); keeps #chatview intact. */
+async function renderChatList() {
+  const listBox = document.getElementById("chatlist");
+  if (!listBox) return [];
+  const { data, error } = await sb.from("conversations").select("*")
+    .eq("vendor_id", currentUser.id).order("last_message_at", { ascending: false });
+  if (error) { listBox.innerHTML = "\u26A0\uFE0F " + esc(error.message); return []; }
+  const list = (data || []).map(mapConv);
+  const convById = {};
+  window._vendorLastMsgAt = window._vendorLastMsgAt || {};
+  list.forEach(c => {
+    convById[c.id] = c;
+    if (!(c.id in window._vendorLastMsgAt)) window._vendorLastMsgAt[c.id] = c.lastMessageAt;
+  });
+  window._vendorConvs = convById;
+  const unread = await unreadCounts(list.map(c => c.id), "vendorReadAt", convById);
+  if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return []; }
+  listBox.innerHTML = list.map(c =>
+    '<div class="card shop-card" data-conv="' + c.id + '"><div class="shop-emoji">👤</div>' +
+    '<div style="flex:1"><h3>' + esc(c.customerName || "\u2026") +
+    (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
+    '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>").join("");
+  listBox.querySelectorAll("[data-conv]").forEach(el =>
+    el.onclick = () => {
+      const b = el.querySelector(".ubadge");
+      if (b) b.remove();
+      mountChat(document.getElementById("chatview"), el.getAttribute("data-conv"), "💬");
+    });
+  return list.map(c => c.id);
 }
 async function drawVendorOrders() {
   const box = document.getElementById("vtab");

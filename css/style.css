@@ -48,6 +48,13 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 90px; }
   display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px;
   background: #ffe0b2; color: #a35400; margin-left: 6px; vertical-align: middle;
 }
+/* unread message count pill (chat badges) */
+.ubadge {
+  display: inline-block; min-width: 20px; height: 20px; line-height: 20px;
+  text-align: center; border-radius: 10px; background: var(--pink); color: #fff;
+  font-size: 12px; font-weight: 700; padding: 0 6px; margin-left: 6px;
+  vertical-align: middle;
+}
 .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
 .toolbar input[type=search] {
   flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
