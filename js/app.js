@@ -206,6 +206,7 @@ function cartTotal() {
 /* ---------- boot ---------- */
 window.addEventListener("DOMContentLoaded", boot);
 function boot() {
+  try { applyTheme(); } catch (e) {}
   try {
     document.getElementById("logoBtn").onclick = () => { location.hash = "#/"; };
     document.getElementById("menuBtn").onclick = () => openDrawer();
@@ -583,7 +584,10 @@ function viewSettings() {
     '<button class="btn" style="width:100%" onclick="savePrefs()">' + esc(t("save")) + "</button></div>" +
     '<div class="card"><h3>🔔 ' + esc(t("notifTitle")) + "</h3>" +
     '<div class="profile-row" style="align-items:center"><span>' + esc(t("notifDesc")) + "</span>" +
-    '<label class="switch"><input type="checkbox" id="s-notif"' + (getPref("notif", "1") === "1" ? " checked" : "") + ' onchange="toggleNotif()"><span class="slider"></span></label></div></div>';
+    '<label class="switch"><input type="checkbox" id="s-notif"' + (getPref("notif", "1") === "1" ? " checked" : "") + ' onchange="toggleNotif()"><span class="slider"></span></label></div></div>' +
+    '<div class="card"><h3>🌙 ' + esc(t("themeTitle")) + "</h3>" +
+    '<div class="profile-row" style="align-items:center"><span>' + esc(t("darkMode")) + "</span>" +
+    '<label class="switch"><input type="checkbox" id="s-theme"' + (getPref("theme", "light") === "dark" ? " checked" : "") + ' onchange="toggleTheme()"><span class="slider"></span></label></div></div>';
 }
 function savePrefs() {
   setPref("addr", (document.getElementById("s-addr").value || "").trim());
@@ -592,6 +596,15 @@ function savePrefs() {
 }
 function toggleNotif() {
   setPref("notif", document.getElementById("s-notif").checked ? "1" : "0");
+}
+function applyTheme() {
+  const th = getPref("theme", "light");
+  document.documentElement.setAttribute("data-theme", th);
+}
+function toggleTheme() {
+  const dark = document.getElementById("s-theme").checked;
+  setPref("theme", dark ? "dark" : "light");
+  applyTheme();
 }
 /* Help: short trilingual FAQ. */
 function viewHelp() {

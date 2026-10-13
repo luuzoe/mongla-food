@@ -11,6 +11,19 @@
   --orange: #ef6c00;
   --blue: #1565c0;
 }
+[data-theme="dark"] {
+  --pink: #f06292;
+  --pink-dark: #e91e63;
+  --bg: #121212;
+  --card: #1e1e1e;
+  --text: #e0e0e0;
+  --muted: #999;
+  --line: #333;
+  --green: #66bb6a;
+  --orange: #ffa726;
+  --blue: #64b5f6;
+}
+[data-theme="dark"] img { opacity: .9; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei",
