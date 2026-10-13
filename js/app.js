@@ -1365,6 +1365,7 @@ async function viewOrders() {
     }).join("");
     box.querySelectorAll("[data-reorder]").forEach(b => b.onclick = () => reorder(b.getAttribute("data-reorder")));
     box.querySelectorAll("[data-rateorder]").forEach(b => b.onclick = () => rateSheet(b.getAttribute("data-rateorder")));
+    snapshotOrderSeen(list);
       // realtime: vendor replies -> bump the chat badge live (ping unless its chatbox is open)
       if (convIds.length) {
         const mch = sb.channel("my-msgs-" + currentUser.id)
@@ -1912,6 +1913,7 @@ async function drawVendorOrders() {
       { event: "*", schema: "public", table: "orders", filter: "vendor_id=eq." + currentUser.id },
       (payload) => {
         if (payload && payload.eventType === "INSERT") notifyPing("🔔 " + t("newOrder"));
+        refreshOrderBadge(true);
         stopListeners(); drawVendorOrders();
       })
     .subscribe();
@@ -2053,6 +2055,54 @@ async function refreshTotalUnread(force) {
   syncChatTabBadge();
   return n;
 }
+/* Orders tab badge: vendor = pending orders needing action;
+ * customer = my orders whose status changed since I last opened Orders. */
+async function refreshOrderBadge(force) {
+  if (!currentUser) { window._newOrderCount = 0; syncOrderTabBadge(); return 0; }
+  const now = Date.now();
+  if (!force && window._obAt && now - window._obAt < 5000) { syncOrderTabBadge(); return window._newOrderCount || 0; }
+  window._obAt = now;
+  let n = 0;
+  try {
+    const role = (userDoc && userDoc.role) || "customer";
+    if (role === "vendor" || role === "admin") {
+      const r = await sb.from("orders").select("id", { count: "exact", head: true })
+        .eq("vendor_id", currentUser.id).eq("status", "pending");
+      n = r.count || 0;
+    } else {
+      const r = await sb.from("orders").select("id,status").eq("customer_id", currentUser.id);
+      let seen = {};
+      try { seen = JSON.parse(localStorage.getItem("ml_order_seen") || "{}"); } catch (e) {}
+      for (const o of (r.data || [])) {
+        if (seen[o.id] && seen[o.id] !== o.status) n++;
+      }
+    }
+  } catch (e) {}
+  window._newOrderCount = n;
+  syncOrderTabBadge();
+  return n;
+}
+function syncOrderTabBadge() {
+  const n = window._newOrderCount || 0;
+  for (const h of ["#/orders", "#/vendor/orders"]) {
+    const btn = document.querySelector('#tapbar [data-h="' + h + '"]');
+    if (!btn) continue;
+    let b = btn.querySelector(".cbadge");
+    if (n > 0) {
+      if (!b) { b = document.createElement("span"); b.className = "cbadge"; btn.appendChild(b); }
+      b.textContent = n > 99 ? "99+" : n;
+    } else if (b) b.remove();
+  }
+}
+function snapshotOrderSeen(list) {
+  try {
+    const m = {};
+    for (const o of (list || [])) m[o.id] = o.status;
+    localStorage.setItem("ml_order_seen", JSON.stringify(m));
+  } catch (e) {}
+  window._newOrderCount = 0;
+  syncOrderTabBadge();
+}
 /* One silent global watcher: any new message in any of my conversations
  * refreshes the chat tab badge, wherever I am in the app. */
 let _gcCh = null;
@@ -2102,7 +2152,7 @@ function renderTapbar() {
     tabs = [
       { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
       chatTab,
-      { ic: "📦", label: t("tabOrders"), hash: "#/vendor/orders", active: h === "#/vendor/orders" },
+      { ic: "📦", label: t("tabOrders"), hash: "#/vendor/orders", active: h === "#/vendor/orders", badge: window._newOrderCount || 0 },
       { ic: "🏪", label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" }
     ];
     if (role === "admin")
@@ -2112,13 +2162,14 @@ function renderTapbar() {
       { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
       { ic: "🛒", label: t("cart"), hash: "#/cart", active: h === "#/cart", badge: cc }
     ];
-    if (currentUser) tabs.push({ ic: "📦", label: t("orders"), hash: "#/orders", active: h === "#/orders" });
+    if (currentUser) tabs.push({ ic: "📦", label: t("orders"), hash: "#/orders", active: h === "#/orders", badge: window._newOrderCount || 0 });
     tabs.push(chatTab);
   }
   refreshTotalUnread(false);
+  refreshOrderBadge(false);
   // Avoid rebuilding the bar when nothing changed (prevents visible flicker).
   const sig = tabs.map(tb => tb.hash + "|" + tb.label + "|" + (tb.active ? 1 : 0) + "|" + (tb.badge || 0)).join(";");
-  if (bar.dataset.sig === sig) { syncChatTabBadge(); return; }
+  if (bar.dataset.sig === sig) { syncChatTabBadge(); syncOrderTabBadge(); return; }
   bar.dataset.sig = sig;
   bar.innerHTML = tabs.map(tb =>
     '<button class="' + (tb.active ? "active" : "") + '" data-h="' + tb.hash + '">' +
@@ -2127,6 +2178,7 @@ function renderTapbar() {
   bar.querySelectorAll("button").forEach(b =>
     b.onclick = () => { location.hash = b.getAttribute("data-h"); });
   syncChatTabBadge();
+  syncOrderTabBadge();
 }
 
 /* ---------- admin ---------- */
