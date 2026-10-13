@@ -299,3 +299,12 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
 .post-shop { color: var(--blue); font-size: 12px; font-weight: 600; cursor: pointer; }
 .post-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
 .post-time { color: var(--muted); font-size: 11px; }
+
+/* full-page chat (Messenger/TikTok style) */
+.chat-page { display: flex; flex-direction: column; height: calc(100dvh - 185px); min-height: 380px; }
+.chat-page .chead { display: flex; align-items: center; gap: 10px; padding: 2px 2px 10px; }
+.chat-page .chead .back { font-size: 24px; background: none; border: none; cursor: pointer; padding: 2px 8px 2px 0; color: var(--pink); }
+.chat-page .chead .who { font-weight: 700; font-size: 16px; }
+.chat-page .card { display: flex; flex-direction: column; flex: 1; min-height: 0; margin: 0; }
+.chat-page .card > h3 { display: none; }
+.chat-page .chatbox { flex: 1; height: auto; min-height: 0; }

@@ -302,6 +302,7 @@ function renderAll() {
   if (h.startsWith("#/shop/")) { const id = h.split("/")[2]; return viewShop(id); }
   if (h === "#/cart") return viewCart();
   if (h === "#/orders") return viewOrders();
+  if (h.startsWith("#/chat/")) { const cid = h.split("/")[2]; return viewChatPage(cid); }
   if (h === "#/chats") return viewChats();
   if (h === "#/vendor") return viewVendor();
   if (h === "#/admin") return viewAdmin();
@@ -1650,6 +1651,40 @@ async function delMenuItem(itemId) {
     drawVendorMenu();
   } catch (e) { toast("⚠️ " + e.message); }
 }
+/* ---------- full-page chat (Messenger/TikTok style) ---------- */
+async function viewChatPage(convId) {
+  if (needLogin()) return;
+  if (!convId || !/^[0-9a-f-]{36}$/i.test(convId)) { location.hash = "#/chats"; return; }
+  const app = document.getElementById("app");
+  app.innerHTML = '<div class="chat-page"><div class="center muted">…</div></div>';
+  window._openChatsView = convId;
+  try {
+    const { data: conv } = await sb.from("conversations").select("*").eq("id", convId).single();
+    if (!conv || (conv.customer_id !== currentUser.id && conv.vendor_id !== currentUser.id)) {
+      location.hash = "#/chats"; return;
+    }
+    let nm = conv.customer_name || "…";
+    let emoji = "👤";
+    if (conv.customer_id === currentUser.id) {
+      emoji = "🏪";
+      try {
+        const { data: sh } = await sb.from("shops").select("name_zh,name_my,name_en").eq("id", conv.shop_id).single();
+        if (sh) nm = shopName(mapShop(sh));
+      } catch (e) {}
+    }
+    const page = app.querySelector(".chat-page");
+    page.innerHTML =
+      '<div class="chead"><button class="back" id="chat-back">‹</button>' +
+      '<div class="shop-emoji">' + emoji + '</div><div class="who">' + esc(nm) + "</div></div>" +
+      '<div id="chat-page-body" style="display:flex;flex-direction:column;flex:1;min-height:0"></div>';
+    document.getElementById("chat-back").onclick = () => { location.hash = "#/chats"; };
+    mountChat(document.getElementById("chat-page-body"), convId, "");
+    syncChatTabBadge();
+  } catch (e) {
+    app.innerHTML = '<div class="card center">⚠️ ' + esc(e.message || e) + "</div>";
+  }
+}
+
 /* ---------- all-my-chats view (customer + vendor) ----------
  * One place for every conversation: unread badges, tap to open inline.
  * Incoming messages land here live with popup + sound. */
@@ -1705,19 +1740,7 @@ async function viewChats() {
           if (b) b.remove();
           if (n) window._totalUnread = Math.max(0, (window._totalUnread || 0) - n);
           const cid = el.getAttribute("data-conv");
-          window._openChatsView = cid;
-          const view = document.getElementById("chats-view");
-          mountChat(view, cid, el.getAttribute("data-nm") || "");
-          const h3 = view.querySelector("h3");
-          if (h3 && !h3.querySelector(".chat-x")) {
-            const x = document.createElement("button");
-            x.className = "btn small gray chat-x";
-            x.style.cssText = "float:right";
-            x.textContent = "\u2715";
-            x.onclick = () => { view.innerHTML = ""; window._openChatsView = null; };
-            h3.appendChild(x);
-          }
-          view.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          location.hash = "#/chat/" + cid;
         });
     } catch (e) { listBox.innerHTML = "\u26A0\uFE0F " + esc(e.message); }
   };
@@ -1818,9 +1841,7 @@ async function renderChatList() {
     '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>").join("");
   listBox.querySelectorAll("[data-conv]").forEach(el =>
     el.onclick = () => {
-      const b = el.querySelector(".ubadge");
-      if (b) b.remove();
-      mountChat(document.getElementById("chatview"), el.getAttribute("data-conv"), "💬");
+      location.hash = "#/chat/" + el.getAttribute("data-conv");
     });
   return list.map(c => c.id);
 }
@@ -2016,7 +2037,7 @@ function renderTapbar() {
   const cc = (typeof cartCount === "function") ? cartCount() : 0;
   const isV = role === "vendor" || role === "admin";
   const tu = window._totalUnread || 0;
-  const chatTab = { ic: "💬", label: t("chat"), hash: "#/chats", active: h === "#/chats", badge: tu };
+  const chatTab = { ic: "💬", label: t("chat"), hash: "#/chats", active: h === "#/chats" || h.startsWith("#/chat/"), badge: tu };
   let tabs;
   if (isV) {
     tabs = [
