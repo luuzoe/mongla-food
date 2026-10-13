@@ -125,11 +125,12 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 90px; }
   padding-bottom: env(safe-area-inset-bottom);
 }
 .tapbar button {
-  flex: 1; background: none; border: none; padding: 8px 4px 6px;
+  flex: 1 1 0; min-width: 0; background: none; border: none; padding: 8px 4px 6px;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   font-size: 11px; color: #888; cursor: pointer; position: relative;
   font-family: inherit;
 }
+.tapbar button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tapbar button .ic { font-size: 22px; line-height: 1; }
 .tapbar button.active { color: var(--pink); font-weight: 700; }
 .tapbar .cbadge {
