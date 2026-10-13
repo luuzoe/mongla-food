@@ -1824,9 +1824,11 @@ async function viewChats() {
       if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
       listBox.innerHTML = list.map(c => {
         const nm = isV ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
-        const avatar = !isV && shopPhotos[c.shopId]
+        const avatar = (!isV && shopPhotos[c.shopId])
           ? '<img class="shop-thumb" src="' + esc(shopPhotos[c.shopId]) + '" alt="" loading="lazy">'
-          : '<div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>";
+          : (isV && c.customerAvatarUrl
+            ? '<img class="shop-thumb" src="' + esc(c.customerAvatarUrl) + '" alt="" loading="lazy">'
+            : '<div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>");
         return '<div class="card shop-card" data-conv="' + c.id + '" data-nm="' + esc(nm) + '">' + avatar +
           '<div style="flex:1"><h3>' + esc(nm) +
           (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
