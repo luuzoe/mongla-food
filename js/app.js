@@ -1686,7 +1686,7 @@ async function viewChats() {
       if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
       listBox.innerHTML = list.map(c => {
         const nm = isV ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
-        return '<div class="card shop-card" data-conv="' + c.id + '"><div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>" +
+        return '<div class="card shop-card" data-conv="' + c.id + '" data-nm="' + esc(nm) + '"><div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>" +
           '<div style="flex:1"><h3>' + esc(nm) +
           (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
           '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>";
@@ -1697,8 +1697,20 @@ async function viewChats() {
           const n = b ? Number(b.textContent) || 0 : 0;
           if (b) b.remove();
           if (n) window._totalUnread = Math.max(0, (window._totalUnread || 0) - n);
-          window._openChatsView = el.getAttribute("data-conv");
-          mountChat(document.getElementById("chats-view"), el.getAttribute("data-conv"), "💬");
+          const cid = el.getAttribute("data-conv");
+          window._openChatsView = cid;
+          const view = document.getElementById("chats-view");
+          mountChat(view, cid, el.getAttribute("data-nm") || "");
+          const h3 = view.querySelector("h3");
+          if (h3 && !h3.querySelector(".chat-x")) {
+            const x = document.createElement("button");
+            x.className = "btn small gray chat-x";
+            x.style.cssText = "float:right";
+            x.textContent = "\u2715";
+            x.onclick = () => { view.innerHTML = ""; window._openChatsView = null; };
+            h3.appendChild(x);
+          }
+          view.scrollIntoView({ block: "nearest", behavior: "smooth" });
         });
     } catch (e) { listBox.innerHTML = "\u26A0\uFE0F " + esc(e.message); }
   };
