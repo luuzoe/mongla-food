@@ -2253,8 +2253,8 @@ async function drawVendorOrders(skipChannel) {
   // sales summary (from ALL done orders, archived included)
   const allDone = allRes.data || [];
   const totalSales = allDone.reduce((a, o) => a + (Number(o.total) || 0), 0);
-  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Yangon" });
-  const yangonDay = (iso) => { try { return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Yangon" }); } catch (e) { return ""; } };
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  const yangonDay = (iso) => { try { return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" }); } catch (e) { return ""; } };
   const todaySales = allDone.filter(o => yangonDay(o.created_at) === todayStr)
     .reduce((a, o) => a + (Number(o.total) || 0), 0);
   const salesHtml = '<div class="card" style="background:#e8f5e9;text-align:center">' +
