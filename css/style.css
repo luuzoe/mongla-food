@@ -16,6 +16,7 @@ body {
   margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei",
     "Noto Sans Myanmar", "Myanmar3", sans-serif;
   background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5;
+  padding-bottom: 72px; /* room for the bottom tap bar */
 }
 header.topbar {
   position: sticky; top: 0; z-index: 50;
@@ -111,11 +112,31 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 90px; }
   background: #fff; color: var(--pink); font-size: 16px; cursor: pointer; line-height: 1;
 }
 .cartbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  position: fixed; left: 0; right: 0; bottom: 64px; z-index: 60;
   background: #fff; border-top: 1px solid var(--line); padding: 10px 12px;
   display: flex; align-items: center; gap: 10px; max-width: 720px; margin: 0 auto;
 }
 .cartbar .tot { font-weight: 700; font-size: 16px; }
+/* bottom tap bar */
+.tapbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 55;
+  background: #fff; border-top: 1px solid var(--line);
+  display: flex; max-width: 720px; margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tapbar button {
+  flex: 1; background: none; border: none; padding: 8px 4px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 11px; color: #888; cursor: pointer; position: relative;
+  font-family: inherit;
+}
+.tapbar button .ic { font-size: 22px; line-height: 1; }
+.tapbar button.active { color: var(--pink); font-weight: 700; }
+.tapbar .cbadge {
+  position: absolute; top: 2px; right: calc(50% - 22px);
+  min-width: 18px; height: 18px; line-height: 18px; border-radius: 9px;
+  background: var(--pink); color: #fff; font-size: 11px; font-weight: 700; padding: 0 5px;
+}
 /* chat */
 .chatbox { display: flex; flex-direction: column; height: 46vh; min-height: 300px; }
 .msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }

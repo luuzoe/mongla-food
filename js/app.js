@@ -243,6 +243,7 @@ async function handleSession(session) {
 
 /* ---------- header + side drawer ---------- */
 function renderHeader() {
+  renderTapbar();
   document.querySelectorAll("[data-i18n]").forEach(el => {
     el.textContent = t(el.getAttribute("data-i18n"));
   });
@@ -836,6 +837,7 @@ function cartQty(shopId, itemId, delta) {
 }
 /* Global cart bar (cart may hold items from multiple shops). */
 function renderCartBar() {
+  renderTapbar();
   const bar = document.getElementById("cartbar");
   if (!bar) return;
   if (!cartCount()) { bar.innerHTML = ""; return; }
@@ -1833,6 +1835,34 @@ function renderNav() {
   if (role === "admin")
     html += '<button class="btn small ghost" onclick="location.hash=\'#/admin\'">🛠 ' + esc(t("adminPanel")) + "</button>";
   nav.innerHTML = html;
+}
+
+/* Bottom tap bar: Home | Cart(badge) | Orders | Vendor? | Profile. */
+function renderTapbar() {
+  let bar = document.getElementById("tapbar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "tapbar";
+    bar.className = "tapbar";
+    document.body.appendChild(bar);
+  }
+  const h = location.hash || "#/";
+  const role = userDoc && userDoc.role;
+  const cc = (typeof cartCount === "function") ? cartCount() : 0;
+  const tabs = [
+    { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
+    { ic: "🛒", label: t("cart"), hash: "#/cart", active: h === "#/cart", badge: cc }
+  ];
+  if (currentUser) tabs.push({ ic: "📦", label: t("orders"), hash: "#/orders", active: h === "#/orders" });
+  if (role === "vendor" || role === "admin")
+    tabs.push({ ic: "🏪", label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" });
+  tabs.push({ ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" });
+  bar.innerHTML = tabs.map(tb =>
+    '<button class="' + (tb.active ? "active" : "") + '" data-h="' + tb.hash + '">' +
+    '<span class="ic">' + tb.ic + "</span><span>" + esc(tb.label) + "</span>" +
+    (tb.badge ? '<span class="cbadge">' + tb.badge + "</span>" : "") + "</button>").join("");
+  bar.querySelectorAll("button").forEach(b =>
+    b.onclick = () => { location.hash = b.getAttribute("data-h"); });
 }
 
 /* ---------- admin ---------- */
