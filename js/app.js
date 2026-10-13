@@ -241,6 +241,7 @@ async function handleSession(session) {
     if (typeof _gcCh !== "undefined" && _gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} }
     if (typeof _gcCh !== "undefined") _gcCh = null;
     if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
+    if (window._drvBc) { try { sb.removeChannel(window._drvBc); } catch (e) {} window._drvBc = null; }
     if (window._goCh) { try { sb.removeChannel(window._goCh); } catch (e) {} window._goCh = null; }
     window._totalUnread = 0; window._tuAt = 0; window._chatsLastMsg = {};
   }
@@ -2447,19 +2448,52 @@ function ensureDriverOrderWatch() {
   if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
   const ch = sb.channel("driver-orders-" + uid + "-" + Date.now())
     .on("postgres_changes",
-      { event: "*", schema: "public", table: "orders", filter: "status=eq.ready" },
+      { event: "*", schema: "public", table: "orders" },
       (payload) => {
         const o = (payload && payload.new) || {};
-        if (o.driver_id) return;
-        if (location.hash !== "#/driver") {
-          try { notifyPing(t("newDelivery")); } catch (e) {}
-        } else {
-          drawDriverTab(window._driverTab || 0);
+        const old = (payload && payload.old) || {};
+        // new ready order -> ping
+        if (payload.eventType === "INSERT" && o.status === "ready" && !o.driver_id) {
+          if (location.hash !== "#/driver") {
+            try { notifyPing(t("newDelivery")); } catch (e) {}
+          } else {
+            drawDriverTab(window._driverTab || 0);
+          }
+          return;
+        }
+        // order claimed/delivered/cancelled -> refresh list immediately so it disappears
+        if (payload.eventType === "UPDATE") {
+          const wasReady = old.status === "ready" && !old.driver_id;
+          const nowGone = o.status !== "ready" || o.driver_id;
+          if (wasReady && nowGone) {
+            if (location.hash === "#/driver") drawDriverTab(window._driverTab || 0);
+            refreshOrderBadge(true);
+            return;
+          }
+          // new ready order via update
+          if (o.status === "ready" && !o.driver_id && old.status !== "ready") {
+            if (location.hash !== "#/driver") {
+              try { notifyPing(t("newDelivery")); } catch (e) {}
+            } else {
+              drawDriverTab(window._driverTab || 0);
+            }
+          }
         }
       })
     .subscribe();
   ch._uid = uid;
   window._drvCh = ch;
+  // listen for claims by other drivers -> refresh immediately
+  try {
+    const bc = sb.channel("driver-broadcast-listen-" + uid);
+    bc.on("broadcast", { event: "claimed" }, (payload) => {
+      if (payload && payload.payload && payload.payload.orderId) {
+        if (location.hash === "#/driver") drawDriverTab(window._driverTab || 0);
+        refreshOrderBadge(true);
+      }
+    }).subscribe();
+    window._drvBc = bc;
+  } catch (e) {}
 }
 /* Orders tab badge: vendor = pending orders needing action;
  * customer = my orders whose status changed since I last opened Orders. */
@@ -2700,7 +2734,14 @@ async function drawDriverTab(i) {
 async function acceptDelivery(orderId) {
   const { data, error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null).eq("status", "ready").select("id");
   if (error) { toast("⚠️ " + error.message); return; }
-  if (!data || !data.length) { toast("⚠️ " + t("alreadyTaken")); drawDriverTab(0); return; }
+  if (!data || !data.length) { prettyToast("⚠️", t("alreadyTaken"), "red"); drawDriverTab(0); return; }
+  // broadcast to other drivers so it disappears from their lists immediately
+  try {
+    const bc = sb.channel("driver-broadcast");
+    await bc.subscribe();
+    await bc.send({ type: "broadcast", event: "claimed", payload: { orderId: orderId } });
+    await sb.removeChannel(bc);
+  } catch (e) {}
   prettyToast("✅", t("done"), "green"); setDriverTab(1);
 }
 async function driverDelivered(orderId) {
