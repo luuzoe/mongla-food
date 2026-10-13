@@ -1054,7 +1054,7 @@ async function viewOrders() {
       { event: "*", schema: "public", table: "orders", filter: "customer_id=eq." + currentUser.id },
       (payload) => {
         if (payload && payload.eventType === "UPDATE") notifyPing("📦 " + t("orderUpdated"));
-        viewOrders();
+        stopListeners(); viewOrders();
       })
     .subscribe();
   unsubs.push(ch);
@@ -1298,9 +1298,29 @@ async function drawVendorChats() {
     '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>").join("") + '</div><div id="chatview"></div>';
   box.querySelectorAll("[data-conv]").forEach(el =>
     el.onclick = () => mountChat(document.getElementById("chatview"), el.getAttribute("data-conv"), "💬"));
+  // realtime: new customer chats pop in live
+  const ch = sb.channel("vendor-chats-" + currentUser.id)
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "conversations", filter: "vendor_id=eq." + currentUser.id },
+      (payload) => {
+        if (payload && payload.eventType === "INSERT") notifyPing("💬 " + t("newChat"));
+        stopListeners(); drawVendorChats();
+      })
+    .subscribe();
+  unsubs.push(ch);
 }
 async function drawVendorOrders() {
   const box = document.getElementById("vtab");
+  // realtime first: vendor hears about new orders even with an empty list
+  const ch = sb.channel("vendor-orders-" + currentUser.id)
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "orders", filter: "vendor_id=eq." + currentUser.id },
+      (payload) => {
+        if (payload && payload.eventType === "INSERT") notifyPing("🔔 " + t("newOrder"));
+        stopListeners(); drawVendorOrders();
+      })
+    .subscribe();
+  unsubs.push(ch);
   box.innerHTML = '<div class="center muted">…</div>';
   const { data, error } = await sb.from("orders").select("*")
     .eq("vendor_id", currentUser.id).order("created_at", { ascending: false });

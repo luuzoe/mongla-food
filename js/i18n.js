@@ -141,6 +141,8 @@ const STR = {
   notifDesc:          { zh: "订单状态和聊天新消息提醒（弹窗+提示音）", my: "အမှာစာ အခြေအနေ နဲ့ စကားပြောခန်း စာအသစ် အသိပေးမယ် (popup + အသံ)", en: "Order updates and new chat messages (popup + sound)" },
   newMessage:         { zh: "有新消息", my: "စာအသစ် ဝင်လာပါတယ်", en: "New message" },
   orderUpdated:       { zh: "订单状态已更新", my: "အမှာစာ အခြေအနေ ပြောင်းသွားပါပြီ", en: "Order status updated" },
+  newOrder:           { zh: "有新订单", my: "အမှာစာ အသစ် ဝင်လာပါတယ်", en: "New order received" },
+  newChat:            { zh: "有新的聊天", my: "စကားပြောခန်း အသစ် ဝင်လာပါတယ်", en: "New chat started" },
   createPost:        { zh: "发布动态", my: "ပို့စ်တင်မည်", en: "New post" },
   myPosts:           { zh: "我的动态", my: "ကျွန်ုပ်၏ ပို့စ်များ", en: "My posts" },
   postPhoto:         { zh: "上传照片", my: "ဓာတ်ပုံတင်ရန်", en: "Upload photo" },
