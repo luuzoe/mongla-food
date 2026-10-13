@@ -1966,7 +1966,7 @@ function syncChatTabBadge() {
 async function refreshTotalUnread(force) {
   if (!currentUser) { window._totalUnread = 0; syncChatTabBadge(); return 0; }
   const now = Date.now();
-  if (!force && window._tuAt && now - window._tuAt < 20000) { syncChatTabBadge(); return window._totalUnread || 0; }
+  if (!force && window._tuAt && now - window._tuAt < 5000) { syncChatTabBadge(); return window._totalUnread || 0; }
   window._tuAt = now;
   const n = await countTotalUnread();
   window._totalUnread = n;
