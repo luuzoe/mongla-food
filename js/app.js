@@ -445,6 +445,16 @@ async function doLogin() {
   } catch (e) { showErr(e.message || e); }
 }
 async function doCreateAccount() {
+  // fallback: read active role tab from DOM in case regRole got out of sync
+  try {
+    const tabs = document.querySelectorAll(".role-pick .tab");
+    tabs.forEach((tb, i) => {
+      if (tb.classList.contains("active")) {
+        const roles = ["customer", "vendor", "driver"];
+        if (roles[i]) regRole = roles[i];
+      }
+    });
+  } catch (e) {}
   const isVendor = regRole === "vendor";
   const shopNm = isVendor ? document.getElementById("f-shopname").value.trim() : "";
   const ownerNm = isVendor ? document.getElementById("f-ownername").value.trim() : "";
