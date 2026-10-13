@@ -2523,7 +2523,7 @@ async function viewAdmin() {
     "</div><div id=\"atab\"></div>";
   const box = document.getElementById("atab");
   if (adminTab === "shops") {
-    const { data, error } = await sb.from("shops").select("*");
+    const { data, error } = await sb.from("shops").select("*").order("approved", { ascending: true }).order("created_at", { ascending: false });
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
     const list = (data || []).map(mapShop);
     box.innerHTML =
@@ -2568,7 +2568,7 @@ async function viewAdmin() {
       '<button class="btn small gray" onclick="adminResolveReport(\'' + r.id + "')\">" + esc(t("del")) + "</button></div></div>").join("")
       : '<div class="card center muted">' + esc(t("noChats")) + "</div>";
   } else if (adminTab === "drivers") {
-    const { data, error } = await sb.from("users").select("*").eq("role", "driver").order("created_at", { ascending: false });
+    const { data, error } = await sb.from("users").select("*").eq("role", "driver").order("driver_approved", { ascending: true }).order("created_at", { ascending: false });
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
     const list = (data || []).map(mapUser);
     box.innerHTML = list.length ? list.map(u =>
