@@ -234,6 +234,8 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
   font-size: 15px; font-weight: 600; cursor: pointer; border-bottom: 1px solid var(--line);
 }
 .drawer-item:active { background: #fdf0f3; }
+.drawer-item .dic { display: flex; color: var(--pink); }
+.drawer-item .dic svg { width: 22px; height: 22px; display: block; }
 /* ---- settings / language ---- */
 .lang-opt {
   display: flex; align-items: center; justify-content: space-between;
