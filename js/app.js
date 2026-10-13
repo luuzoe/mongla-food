@@ -1286,7 +1286,7 @@ async function mountChat(container, convId, title) {
   await load();
   markChatRead(convId);
   // realtime: reload messages whenever a new one arrives in this conversation
-  const ch = sb.channel("chat-" + convId)
+  const ch = sb.channel("chat-" + convId + "-" + Date.now())
     .on("postgres_changes",
       { event: "INSERT", schema: "public", table: "messages", filter: "conversation_id=eq." + convId },
       (payload) => {
@@ -2042,7 +2042,7 @@ async function viewChats() {
   };
   await render();
 
-  const ch = sb.channel("chats-page-" + currentUser.id)
+  const ch = sb.channel("chats-page-" + currentUser.id + "-" + Date.now())
     .on("postgres_changes",
       { event: "*", schema: "public", table: "conversations", filter: col + "=eq." + currentUser.id },
       async (payload) => {
@@ -2080,7 +2080,7 @@ async function drawVendorChats() {
   await renderChatList();
   // realtime: new chats + new messages (last_message_at changes) pop in live.
   // NOTE: only re-renders the LIST so an open #chatview is never wiped.
-  const ch = sb.channel("vendor-chats-" + currentUser.id)
+  const ch = sb.channel("vendor-chats-" + currentUser.id + "-" + Date.now())
     .on("postgres_changes",
       { event: "*", schema: "public", table: "conversations", filter: "vendor_id=eq." + currentUser.id },
       (payload) => {
@@ -2156,18 +2156,20 @@ async function drawVendorOrders() {
       .eq("vendor_id", currentUser.id).eq("status", "pending").lt("created_at", cutoff);
   } catch (e) {}
   // realtime first: vendor hears about new orders even with an empty list
-  const ch = sb.channel("vendor-orders-" + currentUser.id)
-    .on("postgres_changes",
-      { event: "*", schema: "public", table: "orders", filter: "vendor_id=eq." + currentUser.id },
-      (payload) => {
-        if (payload && payload.eventType === "INSERT") notifyPing("🔔 " + t("newOrder"));
-        if (payload && payload.eventType === "UPDATE" && payload.new && payload.new.status === "cancelled")
-          notifyPing("⚠️ " + t("orderCancelled"));
-        refreshOrderBadge(true);
-        stopListeners(); drawVendorOrders();
-      })
-    .subscribe();
-  unsubs.push(ch);
+  try {
+    const ch = sb.channel("vendor-orders-" + currentUser.id + "-" + Date.now())
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: "vendor_id=eq." + currentUser.id },
+        (payload) => {
+          if (payload && payload.eventType === "INSERT") notifyPing("🔔 " + t("newOrder"));
+          if (payload && payload.eventType === "UPDATE" && payload.new && payload.new.status === "cancelled")
+            notifyPing("⚠️ " + t("orderCancelled"));
+          refreshOrderBadge(true);
+          stopListeners(); drawVendorOrders();
+        })
+      .subscribe();
+    unsubs.push(ch);
+  } catch (e) {}
   box.innerHTML = '<div class="center muted">…</div>';
   const { data, error } = await sb.from("orders").select("*")
     .eq("vendor_id", currentUser.id).eq("vendor_archived", false).order("created_at", { ascending: false });
@@ -2346,7 +2348,7 @@ function ensureGlobalOrderWatch() {
   const role = (userDoc && userDoc.role) || "customer";
   const isV = role === "vendor" || role === "admin";
   const col = isV ? "vendor_id" : "customer_id";
-  const ch = sb.channel("global-orders-" + uid)
+  const ch = sb.channel("global-orders-" + uid + "-" + Date.now())
     .on("postgres_changes",
       { event: "*", schema: "public", table: "orders", filter: col + "=eq." + uid },
       (payload) => {
@@ -2372,7 +2374,7 @@ function ensureDriverOrderWatch() {
   }
   if (window._drvCh && window._drvCh._uid === uid) return;
   if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
-  const ch = sb.channel("driver-orders-" + uid)
+  const ch = sb.channel("driver-orders-" + uid + "-" + Date.now())
     .on("postgres_changes",
       { event: "*", schema: "public", table: "orders", filter: "status=eq.ready" },
       (payload) => {
@@ -2446,7 +2448,7 @@ function ensureGlobalChatWatch() {
   if (_gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} _gcCh = null; }
   const role = (userDoc && userDoc.role) || "customer";
   const col = role === "vendor" ? "vendor_id" : "customer_id";
-  const ch = sb.channel("global-chats-" + uid)
+  const ch = sb.channel("global-chats-" + uid + "-" + Date.now())
     .on("postgres_changes",
       { event: "UPDATE", schema: "public", table: "conversations", filter: col + "=eq." + uid },
       (payload) => {
