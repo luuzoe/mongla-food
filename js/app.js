@@ -1759,18 +1759,21 @@ async function viewChatPage(convId) {
       location.hash = "#/chats"; return;
     }
     let nm = conv.customer_name || "…";
-    let emoji = "👤";
+    let avatarHtml = '<div class="shop-emoji">👤</div>';
     if (conv.customer_id === currentUser.id) {
-      emoji = "🏪";
+      avatarHtml = '<div class="shop-emoji">🏪</div>';
       try {
-        const { data: sh } = await sb.from("shops").select("name_zh,name_my,name_en").eq("id", conv.shop_id).single();
+        const { data: sh } = await sb.from("shops").select("name_zh,name_my,name_en,photo_url").eq("id", conv.shop_id).single();
         if (sh) nm = shopName(mapShop(sh));
+        if (sh && sh.photo_url) avatarHtml = '<img class="shop-thumb" src="' + esc(sh.photo_url) + '" alt="" loading="lazy">';
       } catch (e) {}
+    } else if (conv.customer_avatar_url) {
+      avatarHtml = '<img class="shop-thumb" src="' + esc(conv.customer_avatar_url) + '" alt="" loading="lazy">';
     }
     const page = app.querySelector(".chat-page");
     page.innerHTML =
       '<div class="chead"><button class="back" id="chat-back">‹</button>' +
-      '<div class="shop-emoji">' + emoji + '</div><div class="who">' + esc(nm) + "</div></div>" +
+      avatarHtml + '<div class="who">' + esc(nm) + "</div></div>" +
       '<div id="chat-page-body" style="display:flex;flex-direction:column;flex:1;min-height:0"></div>';
     document.getElementById("chat-back").onclick = () => { location.hash = "#/chats"; };
     mountChat(document.getElementById("chat-page-body"), convId, "");
