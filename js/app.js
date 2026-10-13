@@ -68,7 +68,7 @@ function mapOrder(r) {
     note: r.note || "", deliveryFee: Number(r.delivery_fee_yuan) || 0,
     convId: r.conversation_id, customerName: r.customer_name,
     customerEmail: r.customer_email, createdAt: r.created_at, payMethod: r.payment_method || "cod", payTxn: r.payment_txn || "",
-    driverId: r.driver_id || null
+    driverId: r.driver_id || null, driverArchived: r.driver_archived === true
   };
 }
 function mapPost(r) {
@@ -2558,7 +2558,7 @@ async function drawDriverTab(i) {
     let q = sb.from("orders").select("*").order("created_at", { ascending: false }).limit(50);
     if (i === 0) q = q.eq("status", "ready").is("driver_id", null);
     else if (i === 1) q = q.eq("driver_id", currentUser.id).in("status", ["delivering"]);
-    else q = q.eq("driver_id", currentUser.id).eq("status", "done");
+    else q = q.eq("driver_id", currentUser.id).eq("status", "done").eq("driver_archived", false);
     const { data, error } = await q;
     if (error) throw error;
     const list = (data || []).map(mapOrder);
@@ -2597,12 +2597,14 @@ async function drawDriverTab(i) {
       "\uD83D\uDCCD " + esc(o.deliveryAddress || "") + "<br>" +
       "\uD83D\uDC64 " + esc(o.customerName || "") + (o.customerPhone ? ' \u00b7 <a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a>" : "") + " \u00b7 " + esc(fmtTime(o.createdAt)) + "</div>" +
       (i === 0 ? '<div style="margin-top:6px"><button class="btn small green" data-acc="' + o.id + '">' + esc(t("acceptDelivery")) + "</button></div>"
-        : i === 1 ? '<div style="margin-top:6px;display:flex;gap:8px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + '</button><button class="btn small gray" data-rel="' + o.id + '">' + esc(t("releaseDelivery")) + "</button></div>" : "") +
+        : i === 1 ? '<div style="margin-top:6px;display:flex;gap:8px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + '</button><button class="btn small gray" data-rel="' + o.id + '">' + esc(t("releaseDelivery")) + "</button></div>"
+        : '<div style="margin-top:6px"><button class="btn small gray" data-arch="' + o.id + '">' + esc(t("del")) + "</button></div>") +
       "</div>";
     }).join("");
     box.querySelectorAll("[data-acc]").forEach(b => b.onclick = () => acceptDelivery(b.getAttribute("data-acc")));
     box.querySelectorAll("[data-dlv]").forEach(b => b.onclick = () => driverDelivered(b.getAttribute("data-dlv")));
     box.querySelectorAll("[data-rel]").forEach(b => b.onclick = () => releaseDelivery(b.getAttribute("data-rel")));
+    box.querySelectorAll("[data-arch]").forEach(b => b.onclick = () => archiveDelivery(b.getAttribute("data-arch")));
   } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message) + "</div>"; }
 }
 async function acceptDelivery(orderId) {
@@ -2622,6 +2624,12 @@ async function releaseDelivery(orderId) {
   const { error } = await sb.from("orders").update({ driver_id: null, status: "ready" }).eq("id", orderId).eq("driver_id", currentUser.id);
   if (error) toast("⚠️ " + error.message);
   else { prettyToast("✅", t("done"), "green"); drawDriverTab(1); }
+}
+async function archiveDelivery(orderId) {
+  if (!(await confirmDlg(t("del") + "?"))) return;
+  const { error } = await sb.from("orders").update({ driver_archived: true }).eq("id", orderId).eq("driver_id", currentUser.id);
+  if (error) toast("⚠️ " + error.message);
+  else drawDriverTab(2);
 }
 
 
