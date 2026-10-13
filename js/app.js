@@ -1145,43 +1145,43 @@ function cartViewDelta(key, delta) {
 }
 async function checkoutAll() {
   if (needLogin()) return;
+  if (window._checkingOut) return;
+  window._checkingOut = true;
+  try {
   const groups = {};
   Object.values(cart.items).forEach(it => { (groups[it.shopId] = groups[it.shopId] || []).push(it); });
   const shopIds = Object.keys(groups);
-  if (!shopIds.length) return;
+  if (!shopIds.length) { window._checkingOut = false; return; }
   const addr = (document.getElementById("co-addr").value || "").trim();
   const phone = (document.getElementById("co-phone").value || "").trim();
   const note = (document.getElementById("co-note").value || "").trim();
   const payMethod = (document.getElementById("co-paymethod") || {}).value || "cod";
   const payTxn = ((document.getElementById("co-txn") || {}).value || "").trim();
-  if (!addr || !phone) { toast("⚠️ " + t("fillAddressPhone")); return; }
+  if (!addr || !phone) { toast("⚠️ " + t("fillAddressPhone")); window._checkingOut = false; return; }
+  // always re-fetch fresh shop status + payment numbers (cache may be stale)
+  const freshShops = {};
+  for (const sid of shopIds) {
+    try {
+      const { data } = await sb.from("shops").select("id,is_open,name_zh,name_my,name_en,wavepay_number,kbzpay_number").eq("id", sid).single();
+      if (data) { freshShops[sid] = mapShop(data); shopCache[sid] = freshShops[sid]; }
+    } catch (e) {}
+    if (!freshShops[sid]) freshShops[sid] = shopCache[sid] || (window._shops || []).find(s => s.id === sid);
+  }
   // verify all shops are open
   for (const sid of shopIds) {
-    let sh = shopCache[sid] || (window._shops || []).find(s => s.id === sid);
-    if (!sh) {
-      try {
-        const { data } = await sb.from("shops").select("id,is_open,name_zh,name_my,name_en").eq("id", sid).single();
-        if (data) { sh = mapShop(data); shopCache[sid] = sh; }
-      } catch (e) {}
-    }
-    if (sh && sh.isOpen === false) { toast("⚠️ " + shopName(sh) + ": " + t("shopClosed")); return; }
+    const sh = freshShops[sid];
+    if (sh && sh.isOpen === false) { toast("⚠️ " + shopName(sh) + ": " + t("shopClosed")); window._checkingOut = false; return; }
   }
   // validate shop has the selected mobile payment number
   if (payMethod === "wavepay" || payMethod === "kbzpay") {
     for (const sid of shopIds) {
-      let sh = (window._shops || []).find(s => s.id === sid) || shopCache[sid];
-      if (!sh) {
-        try {
-          const { data } = await sb.from("shops").select("id,name_zh,name_my,name_en,wavepay_number,kbzpay_number").eq("id", sid).single();
-          if (data) { sh = mapShop(data); shopCache[sid] = sh; }
-        } catch (e) {}
-      }
+      const sh = freshShops[sid];
       const num = payMethod === "wavepay" ? (sh && sh.wavepay) : (sh && sh.kbzpay);
-      if (!num) { toast("⚠️ " + (sh ? shopName(sh) : "") + ": " + t("noPayNumber")); return; }
+      if (!num) { toast("⚠️ " + (sh ? shopName(sh) : "") + ": " + t("noPayNumber")); window._checkingOut = false; return; }
     }
-    if (!payTxn) { toast("⚠️ " + t("fillTxn")); return; }
+    if (!payTxn) { toast("⚠️ " + t("fillTxn")); window._checkingOut = false; return; }
   }
-  if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) return;
+  if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) { window._checkingOut = false; return; }
   const succeeded = [];
   try {
     for (const sid of shopIds) {
@@ -1197,14 +1197,20 @@ async function checkoutAll() {
     prettyToast("✅", t("orderSent"), "green");
     location.hash = "#/orders";
   } catch (e) {
+    // order row may already exist even if post-insert steps failed -> don't reorder it
+    if (e._orderId && e._shopId && !succeeded.includes(e._shopId)) succeeded.push(e._shopId);
     // remove only succeeded shops from cart, keep failed ones for retry
     succeeded.forEach(sid => {
       Object.keys(cart.items).forEach(k => {
         if (cart.items[k] && cart.items[k].shopId === sid) delete cart.items[k];
       });
+      delete cartFees[sid];
     });
+    try { if (typeof drawCart === "function") drawCart(); } catch (err) {}
+    try { if (typeof renderCartBar === "function") renderCartBar(); } catch (err) {}
     toast("⚠️ " + e.message + (succeeded.length ? " (" + t("partialOrder") + ": " + succeeded.length + ")" : ""));
   }
+  } finally { window._checkingOut = false; }
 }
 /* Create one order + drop the item list as a message into the vendor's chatbox. */
 async function placeShopOrder(shopId, items, delivery) {
@@ -1233,16 +1239,18 @@ async function placeShopOrder(shopId, items, delivery) {
     status: "pending", conversation_id: null
   }).select().single();
   if (oErr) throw oErr;
-  const convId = await ensureConversation(shopId, s.ownerUid);
-  await sb.from("orders").update({ conversation_id: convId }).eq("id", order.id);
-  const deliveryInfo = "📍 " + delivery.address + "\n📞 " + delivery.phone +
-    (delivery.note ? "\n📝 " + delivery.note : "");
-  await sb.from("messages").insert({
-    conversation_id: convId, sender_id: currentUser.id, sender_role: "customer",
-    kind: "order", order_id: order.id, items: items, total_yuan: total,
-    body: deliveryInfo
-  });
-  await sb.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", convId);
+  try {
+    const convId = await ensureConversation(shopId, s.ownerUid);
+    await sb.from("orders").update({ conversation_id: convId }).eq("id", order.id);
+    const deliveryInfo = "📍 " + delivery.address + "\n📞 " + delivery.phone +
+      (delivery.note ? "\n📝 " + delivery.note : "");
+    await sb.from("messages").insert({
+      conversation_id: convId, sender_id: currentUser.id, sender_role: "customer",
+      kind: "order", order_id: order.id, items: items, total_yuan: total,
+      body: deliveryInfo
+    });
+    await sb.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", convId);
+  } catch (e) { e._orderId = order.id; e._shopId = shopId; throw e; }
 }
 /* One conversation per customer × shop (UNIQUE(shop_id, customer_id)). */
 async function ensureConversation(shopId, vendorUid) {
@@ -1543,18 +1551,28 @@ async function reorder(orderId) {
     ]);
     const byId = {};
     (menuRes.data || []).forEach(x => byId[x.id] = x);
+    // fetch live posts for post-based items
+    const postIds = [...new Set(o.items.map(it => String(it.itemId || "")).filter(id => id.startsWith("post_")).map(id => id.slice(5)))];
+    const postMap = {};
+    if (postIds.length) {
+      try {
+        const { data } = await sb.from("posts").select("*").in("id", postIds);
+        (data || []).forEach(p => { postMap["post_" + p.id] = mapPost(p); });
+      } catch (e) {}
+    }
     const sh = shopRes.data ? mapShop(shopRes.data) : {};
     let added = 0, dropped = 0;
     for (const it of o.items) {
       const mid = String(it.itemId || "");
-      const cur = (!mid.startsWith("post_")) ? byId[it.itemId] : null;
+      const cur = mid.startsWith("post_") ? postMap[mid] : byId[it.itemId];
       if (!cur || cur.available === false) { dropped++; continue; }
       const key = o.shopId + "__" + it.itemId;
       const old = cart.items[key];
+      const isPost = mid.startsWith("post_");
       cart.items[key] = {
         shopId: o.shopId, itemId: it.itemId, qty: (old ? old.qty : 0) + (it.qty || 1),
-        name_zh: cur.name_zh, name_my: cur.name_my, name_en: cur.name_en,
-        price: Number(cur.price_yuan) || 0, photoUrl: cur.photo_url, emoji: cur.emoji,
+        name_zh: isPost ? cur.body : cur.name_zh, name_my: isPost ? cur.body : cur.name_my, name_en: isPost ? cur.body : cur.name_en,
+        price: Number(isPost ? cur.price : cur.price_yuan) || 0, photoUrl: isPost ? cur.photoUrl : cur.photo_url, emoji: isPost ? "📢" : cur.emoji,
         shop_zh: sh.name_zh, shop_my: sh.name_my, shop_en: sh.name_en
       };
       added++;
@@ -2286,7 +2304,7 @@ async function archiveVendorOrder(orderId) {
   if (!(await confirmDlg(t("del") + "?"))) return;
   const { error } = await sb.from("orders").update({ vendor_archived: true }).eq("id", orderId).eq("vendor_id", currentUser.id);
   if (error) toast("⚠️ " + error.message);
-  else drawVendorOrders();
+  else drawVendorOrders(true);
 }
 
 /* ---------- vendor posts （商家动态） ---------- */
@@ -2449,6 +2467,7 @@ function ensureDriverOrderWatch() {
   const role = (userDoc && userDoc.role) || "customer";
   if (role !== "driver" || !userDoc.driverApproved) {
     if (window._drvCh) { try { sb.removeChannel(window._drvCh); } catch (e) {} window._drvCh = null; }
+    if (window._drvBc) { try { sb.removeChannel(window._drvBc); } catch (e) {} window._drvBc = null; }
     return;
   }
   if (window._drvCh && window._drvCh._uid === uid) return;
@@ -2458,7 +2477,6 @@ function ensureDriverOrderWatch() {
       { event: "*", schema: "public", table: "orders" },
       (payload) => {
         const o = (payload && payload.new) || {};
-        const old = (payload && payload.old) || {};
         // new ready order -> ping
         if (payload.eventType === "INSERT" && o.status === "ready" && !o.driver_id) {
           if (location.hash !== "#/driver") {
@@ -2468,23 +2486,23 @@ function ensureDriverOrderWatch() {
           }
           return;
         }
-        // order claimed/delivered/cancelled -> refresh list immediately so it disappears
+        // any order update -> refresh (broadcast handles instant disappear on claim)
         if (payload.eventType === "UPDATE") {
-          const wasReady = old.status === "ready" && !old.driver_id;
-          const nowGone = o.status !== "ready" || o.driver_id;
-          if (wasReady && nowGone) {
-            if (location.hash === "#/driver") drawDriverTab(window._driverTab || 0);
-            refreshOrderBadge(true);
-            return;
-          }
-          // new ready order via update
-          if (o.status === "ready" && !o.driver_id && old.status !== "ready") {
-            if (location.hash !== "#/driver") {
-              try { notifyPing(t("newDelivery")); } catch (e) {}
-            } else {
-              drawDriverTab(window._driverTab || 0);
+          // vendor marked ready via update -> ping if we haven't seen it
+          if (o.status === "ready" && !o.driver_id && o.id) {
+            window._seenReady = window._seenReady || {};
+            if (!window._seenReady[o.id]) {
+              window._seenReady[o.id] = true;
+              if (location.hash !== "#/driver") {
+                try { notifyPing(t("newDelivery")); } catch (e) {}
+              }
             }
           }
+          if (location.hash === "#/driver") {
+            if (window._drvRefreshT) clearTimeout(window._drvRefreshT);
+            window._drvRefreshT = setTimeout(() => drawDriverTab(window._driverTab || 0), 800);
+          }
+          refreshOrderBadge(true);
         }
       })
     .subscribe();
@@ -2676,9 +2694,10 @@ async function viewDriver() {
 }
 function setDriverTab(i) {
   window._driverTab = i;
-  document.getElementById("dtab-avail").className = "tab" + (i === 0 ? " active" : "");
-  document.getElementById("dtab-mine").className = "tab" + (i === 1 ? " active" : "");
-  document.getElementById("dtab-hist").className = "tab" + (i === 2 ? " active" : "");
+  ["dtab-avail", "dtab-mine", "dtab-hist"].forEach((id, j) => {
+    const el = document.getElementById(id);
+    if (el) el.className = "tab" + (i === j ? " active" : "");
+  });
   drawDriverTab(i);
 }
 async function drawDriverTab(i) {
@@ -2751,9 +2770,12 @@ async function acceptDelivery(orderId) {
   // broadcast to other drivers so it disappears from their lists immediately
   try {
     const bc = sb.channel("driver-broadcast");
-    await bc.subscribe();
+    await new Promise((res) => {
+      const to = setTimeout(res, 3000);
+      bc.subscribe((s) => { if (s === "SUBSCRIBED") { clearTimeout(to); res(); } });
+    });
     await bc.send({ type: "broadcast", event: "claimed", payload: { orderId: orderId } });
-    await sb.removeChannel(bc);
+    try { await sb.removeChannel(bc); } catch (e) {}
   } catch (e) {}
   prettyToast("✅", t("done"), "green"); setDriverTab(1);
 }
