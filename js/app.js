@@ -72,7 +72,8 @@ function mapPost(r) {
   return {
     id: r.id, shopId: r.shop_id, vendorUid: r.vendor_id,
     body: r.body || "", price: Number(r.price_yuan) || 0,
-    photoUrl: r.photo_url || "", createdAt: r.created_at
+    photoUrl: r.photo_url || "", createdAt: r.created_at,
+    category: r.category || "foods"
   };
 }
 
@@ -575,7 +576,7 @@ function postCardHTML(p, showShop) {
         '<button onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">＋</button></div>"
       : '<button class="btn small" onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">" + esc(t("order")) + "</button>") +
     "</div>" +
-    '<div class="post-time">' + esc(fmtTime(p.createdAt)) + "</div>" +
+    '<div class="post-time">🏷️ ' + esc(catName(p.category || "foods")) + " · " + esc(fmtTime(p.createdAt)) + "</div>" +
     "</div></div>";
 }
 /* Homepage feed: newest posts across ALL shops (after the product grid). */
@@ -602,7 +603,8 @@ async function drawFeed() {
 function renderFeedPosts() {
   const box = document.getElementById("feedSection");
   if (!box) return;
-  const list = window._feedPosts || [];
+  const cat = (typeof homeFilter !== "undefined" && homeFilter.cat) || "all";
+  const list = (window._feedPosts || []).filter(p => cat === "all" || (p.category || "foods") === cat);
   if (!list.length) { box.innerHTML = ""; return; }
   box.innerHTML = '<h3 style="margin:16px 0 8px">🔥 ' + esc(t("feedTitle")) + "</h3>" +
     '<div class="post-grid">' + list.map(p => postCardHTML(p, true)).join("") + "</div>";
@@ -1287,6 +1289,10 @@ async function drawVendorPosts() {
     '<button class="btn" style="width:100%;margin-bottom:12px" onclick="togglePostForm()">📢 ' + esc(t("createPost")) + "</button>" +
     (showPostForm
       ? '<div class="card"><h3>📢 ' + esc(t("createPost")) + "</h3>" +
+        '<div class="field"><label>' + esc(t("allCategories")) + '</label><select id="p-cat">' +
+        CATEGORIES.filter(c => c.id !== "all").map(c =>
+          '<option value="' + c.id + '"' + ((myShop.category || "foods") === c.id ? " selected" : "") + ">" + esc(catName(c.id)) + "</option>").join("") +
+        "</select></div>" +
         '<div class="field"><label>' + esc(t("postPhoto")) + '</label><input id="p-photo" type="file" accept="image/*"></div>' +
         '<div class="field"><textarea id="p-body" rows="3" placeholder="' + esc(t("postPlaceholder")) + '"></textarea></div>' +
         '<div class="field"><label>' + esc(t("priceYuan")) + '</label><input id="p-price" type="number" min="0" step="1"></div>' +
@@ -1318,7 +1324,8 @@ async function publishPost() {
     }
     const { error } = await sb.from("posts").insert({
       shop_id: myShop.id, vendor_id: currentUser.id,
-      body: body, price_yuan: Number(priceRaw), photo_url: photoUrl
+      body: body, price_yuan: Number(priceRaw), photo_url: photoUrl,
+      category: (document.getElementById("p-cat") || {}).value || "foods"
     });
     if (error) throw error;
     showPostForm = false;
