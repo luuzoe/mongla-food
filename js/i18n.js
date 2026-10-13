@@ -169,6 +169,21 @@ const STR = {
   photoTooBig:       { zh: "照片不能超过 5MB", my: "ဓာတ်ပုံ 5MB ထက် မကြီးရပါ", en: "Photo must be smaller than 5MB" },
   uploadingPhoto:    { zh: "照片上传中…", my: "ဓာတ်ပုံ တင်နေသည်…", en: "Uploading photo…" },
   changePhoto:       { zh: "更换头像", my: "ပုံပြောင်းရန်", en: "Change photo" },
+  shopPending:       { zh: "该店铺正在审核中", my: "ဒီဆိုင် အတည်ပြုချက် စောင့်နေပါတယ်", en: "This shop is pending approval" },
+  shopPendingVendor: { zh: "⏳ 您的店铺正在审核中，审核通过后才会显示给顾客", my: "⏳ သင့်ဆိုင် အတည်ပြုချက် စောင့်နေပါတယ် — အတည်ပြုပြီးမှ ဝယ်သူတွေ မြင်ရမယ်", en: "⏳ Your shop is pending approval — it will be visible to customers after approval" },
+  approve:           { zh: "批准", my: "အတည်ပြုရန်", en: "Approve" },
+  reject:            { zh: "拒绝", my: "ပယ်ချရန်", en: "Reject" },
+  pendingShops:      { zh: "待审核商家", my: "အတည်ပြုရန် စောင့်နေသော ဆိုင်များ", en: "Pending shops" },
+  report:            { zh: "举报", my: "တိုင်ကြားရန်", en: "Report" },
+  reportReason:      { zh: "请说明举报原因", my: "တိုင်ကြားရတဲ့ အကြောင်းပြချက် ရေးပါ", en: "Describe the reason for reporting" },
+  reportSent:        { zh: "已收到您的举报，我们会尽快处理", my: "တိုင်ကြားချက် ရရှိပါပြီ — အမြန်ဆုံး စစ်ဆေးပေးမယ်", en: "Report received — we will review it soon" },
+  reports:           { zh: "举报管理", my: "တိုင်ကြားချက်များ", en: "Reports" },
+  ban:               { zh: "封号", my: "အကောင့်ပိတ်ရန်", en: "Ban" },
+  unban:             { zh: "解封", my: "အကောင့်ပြန်ဖွင့်ရန်", en: "Unban" },
+  banned:            { zh: "已封号", my: "အကောင့်ပိတ်ခံထားရသည်", en: "Banned" },
+  accountBanned:     { zh: "您的账号已被封禁，请联系客服", my: "သင့်အကောင့် ပိတ်ခံထားရပါတယ် — ဆက်သွယ်ရန်", en: "Your account has been banned — please contact support" },
+  confirmReceived:   { zh: "确认收货", my: "ပစ္စည်းရရှိကြောင်း အတည်ပြုရန်", en: "Confirm received" },
+  newCustomerWarn:   { zh: "⚠️ 新顾客，建议电话确认后再备餐", my: "⚠️ ဝယ်သူအသစ် — ချက်ပြုတ်ခင် ဖုန်းနဲ့ အတည်ပြုပါ", en: "⚠️ New customer — confirm by phone before preparing" },
   noPosts:           { zh: "暂无动态", my: "ပို့စ်မရှိသေးပါ", en: "No posts yet" }
 };
 

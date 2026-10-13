@@ -19,7 +19,7 @@ let adminTab = "shops";
 function mapUser(r) {
   if (!r) return null;
   const nm = ((r.first_name || "") + " " + (r.last_name || "")).trim();
-  return { id: r.id, role: r.role, name: nm || r.email || "", first_name: r.first_name, last_name: r.last_name, email: r.email, phone: r.phone, avatarUrl: r.avatar_url || "" };
+  return { id: r.id, role: r.role, name: nm || r.email || "", first_name: r.first_name, last_name: r.last_name, email: r.email, phone: r.phone, avatarUrl: r.avatar_url || "", banned: !!r.banned };
 }
 function mapShop(r) {
   if (!r) return r;
@@ -28,7 +28,7 @@ function mapShop(r) {
     ownerName: r.owner_name, address_zh: r.address_zh, address_my: r.address_my,
     phone: r.phone, category: r.category, emoji: r.emoji, sample: r.sample,
     deliveryFee: Number(r.delivery_fee_yuan) || 0, wechatId: r.wechat_id || "",
-    photo_url: r.photo_url || null,
+    photo_url: r.photo_url || null, approved: r.approved !== false,
     ownerUid: r.owner_id, createdAt: r.created_at
   };
 }
@@ -229,6 +229,13 @@ async function handleSession(session) {
       const { data, error } = await sb.from("users").select("*").eq("id", currentUser.id).single();
       if (!error && data) {
         userDoc = mapUser(data);
+    if (userDoc && userDoc.banned) {
+      try { await sb.auth.signOut(); } catch (e) {}
+      currentUser = null; userDoc = null;
+      toast(t("accountBanned"));
+      location.hash = "#/";
+      return;
+    }
         // backfill: push my avatar onto conversations missing it (e.g. uploaded before v13)
         if (userDoc && userDoc.avatarUrl) {
           sb.from("conversations").update({ customer_avatar_url: userDoc.avatarUrl })
@@ -596,7 +603,7 @@ async function viewHome() {
   document.getElementById("q").oninput = (e) => { homeFilter.q = e.target.value; drawDishGrid(); };
   try {
     // one query: shops + their menus (public read, no login needed)
-    const { data: shops, error } = await sb.from("shops").select("*, menu_items(*)");
+    const { data: shops, error } = await sb.from("shops").select("*, menu_items(*)").eq("approved", true);
     window._shops = [];
     window._dishIndex = {};
     window._allDishes = [];
@@ -816,6 +823,16 @@ function postOrder(key, delta) {
 
 /* ---------- shop detail ---------- */
 let shopCache = {};
+async function openReport(reportedUid) {
+  if (!currentUser || !reportedUid || reportedUid === currentUser.id) return;
+  var reason = prompt(t("reportReason"));
+  if (reason === null) return;
+  try {
+    var r = await sb.from("reports").insert({ reporter_id: currentUser.id, reported_user_id: reportedUid, reason: reason || "" });
+    if (r.error) throw r.error;
+    toast("\u2705 " + t("reportSent"));
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+}
 async function viewShop(id) {
   const app = document.getElementById("app");
   app.innerHTML = '<div class="center muted" style="padding:30px">…</div>';
@@ -825,6 +842,14 @@ async function viewShop(id) {
     if (error || !data) { app.innerHTML = '<div class="card">' + esc(t("noShops")) + "</div>"; return; }
     s = mapShop(data);
     shopCache[id] = s;
+    if (!s.approved) {
+      const isOwner = currentUser && s.ownerUid === currentUser.id;
+      const isAdmin = userDoc && userDoc.role === "admin";
+      if (!isOwner && !isAdmin) {
+        app.innerHTML = '<div class="card center muted">' + esc(t("shopPending")) + "</div>";
+        return;
+      }
+    }
   } catch (e) { app.innerHTML = '<div class="card">⚠️ ' + esc(e.message) + "</div>"; return; }
   const addr = LANG === "zh" ? (s.address_zh || "") : (s.address_my || s.address_zh || "");
   app.innerHTML =
@@ -838,6 +863,7 @@ async function viewShop(id) {
     '<div class="profile-row"><span class="k">' + esc(t("ownerName")) + "</span><span>" + esc(s.ownerName || "-") + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("address")) + "</span><span>" + esc(addr) + "</span></div>" +
     '<div class="profile-row"><span class="k">' + esc(t("phone")) + "</span><span><a href=\"tel:" + esc(s.phone || "") + "\">" + esc(s.phone || "-") + "</a></span></div>" +
+    (currentUser ? '<div class="profile-row"><span class="k">🚩</span><span><a href="javascript:void(0)" id="shop-report" style="color:var(--pink)">' + esc(t("report")) + '</a></span></div>' : "") +
     (s.wechatId ? '<div class="profile-row"><span class="k">' + esc(t("wechatId")) + '</span><span class="copyable">' + esc(s.wechatId) + "</span></div>" : "") +
     (s.deliveryFee > 0 ? '<div class="profile-row"><span class="k">🛵 ' + esc(t("deliveryFee")) + "</span><span>" + money(s.deliveryFee) + "</span></div>" : "") +
     "</div>" +
@@ -847,6 +873,8 @@ async function viewShop(id) {
     '<div class="tab' + (shopTab === "chat" ? " active" : "") + '" onclick="setShopTab(\'' + id + "','chat')\">💬 " + esc(t("chat")) + "</div>" +
     "</div><div id=\"shopTabBody\"></div>";
   if (shopTab === "menu") drawMenuTab(id, s); else drawChatTab(id, s);
+  var srBtn = document.getElementById("shop-report");
+  if (srBtn) srBtn.onclick = function() { openReport(s.ownerUid); };
   drawShopPosts(id);
 }
 function setShopTab(id, tab) { shopTab = tab; viewShop(id); }
@@ -1406,6 +1434,7 @@ async function viewOrders() {
     }).join("");
     box.querySelectorAll("[data-reorder]").forEach(b => b.onclick = () => reorder(b.getAttribute("data-reorder")));
     box.querySelectorAll("[data-rateorder]").forEach(b => b.onclick = () => rateSheet(b.getAttribute("data-rateorder")));
+    box.querySelectorAll("[data-confirmrecv]").forEach(b => b.onclick = () => confirmReceived(b.getAttribute("data-confirmrecv")));
     snapshotOrderSeen(list);
       // realtime: vendor replies -> bump the chat badge live (ping unless its chatbox is open)
       if (convIds.length) {
@@ -1468,6 +1497,12 @@ async function toggleOrderChat(orderId) {
     mountChat(box, convId, info.title);
   } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message || e) + "</div>"; }
 }
+async function confirmReceived(orderId) {
+  if (!(await confirmDlg(t("confirmReceived") + "?"))) return;
+  const r = await sb.from("orders").update({ status: "done" }).eq("id", orderId);
+  if (r.error) toast("\u26A0\uFE0F " + r.error.message); else viewOrders();
+}
+
 function orderCard(o, shop, isVendor) {
   const items = (o.items || []).map(it =>
     "<div>" + esc(itemName(it)) +
@@ -1485,12 +1520,16 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "pending")
       btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
     btns += '<button class="btn small" data-reorder="' + o.id + '">🔁 ' + esc(t("reorder")) + "</button>";
+    if (o.status === "delivering")
+      btns += '<button class="btn small green" data-confirmrecv="' + o.id + '">' + esc(t("confirmReceived")) + "</button>";
     if (o.status === "done")
       btns += '<button class="btn small" data-rateorder="' + o.id + '">⭐ ' + esc(t("rateIt")) + "</button>";
   }
   const itemCount = (o.items || []).reduce((a, it) => a + (it.qty || 0), 0);
   const isOpen = (window._openOrders || {}).has ? window._openOrders.has(o.id) : false;
-  return '<div class="card order-card2' + (isOpen ? " open" : "") + '" data-oid="' + o.id + '">' +
+  const newCustWarn = (isVendor && o.status === "pending" && window._newCust && window._newCust[o.customerUid])
+    ? '<div class="notice" style="margin:0 0 8px">' + esc(t("newCustomerWarn")) + "</div>" : "";
+  return newCustWarn + '<div class="card order-card2' + (isOpen ? " open" : "") + '" data-oid="' + o.id + '">' +
     '<div class="oc-head" onclick="toggleOrderCard(this)">' +
     '<div style="flex:1;min-width:0"><b>' + esc(shop ? shopName(shop) : o.shopId) + "</b>" +
     '<div class="muted">' + esc(fmtTime(o.createdAt)) + " · " + itemCount + " · " + money(o.total) + "</div></div>" +
@@ -1568,6 +1607,7 @@ async function viewVendor() {
   }
   const shopAddr = myShop.address_zh || myShop.address_my || "";
   body.innerHTML =
+    (!myShop.approved ? '<div class="notice">\u23F3 ' + esc(t("shopPendingVendor")) + "</div>" : "") +
     '<div class="card" style="display:flex;gap:20px;position:relative">' +
     '<button class="btn small" style="position:absolute;top:8px;right:8px;padding:6px 10px" onclick="editShopInfo()">✏️</button>' +
     '<div style="position:relative;flex-shrink:0" onclick="document.getElementById(\'v-photo\').click()">' +
@@ -1773,9 +1813,11 @@ async function viewChatPage(convId) {
     const page = app.querySelector(".chat-page");
     page.innerHTML =
       '<div class="chead"><button class="back" id="chat-back">‹</button>' +
-      avatarHtml + '<div class="who">' + esc(nm) + "</div></div>" +
+      avatarHtml + '<div class="who" style="flex:1">' + esc(nm) + "</div>" +
+      '<button class="btn small gray" id="chat-report">🚩</button>' + "</div>" +
       '<div id="chat-page-body" style="display:flex;flex-direction:column;flex:1;min-height:0"></div>';
     document.getElementById("chat-back").onclick = () => { location.hash = "#/chats"; };
+    document.getElementById("chat-report").onclick = () => openReport(conv.customer_id === currentUser.id ? conv.vendor_id : conv.customer_id);
     mountChat(document.getElementById("chat-page-body"), convId, "");
     syncChatTabBadge();
   } catch (e) {
@@ -1977,6 +2019,16 @@ async function drawVendorOrders() {
   if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
   const list = (data || []).map(mapOrder);
   if (!list.length) { box.innerHTML = '<div class="card center muted">' + esc(t("noOrders")) + "</div>"; return; }
+  // flag customers with no completed orders yet
+  window._newCust = {};
+  try {
+    const pcids = [...new Set(list.filter(o => o.status === "pending").map(o => o.customerUid).filter(Boolean))];
+    if (pcids.length) {
+      const dr = await sb.from("orders").select("customer_id").eq("vendor_id", currentUser.id).eq("status", "done").in("customer_id", pcids);
+      const hasDone = new Set((dr.data || []).map(r => r.customer_id));
+      pcids.forEach(id => { if (!hasDone.has(id)) window._newCust[id] = true; });
+    }
+  } catch (e) {}
   box.innerHTML = list.map(o =>
     orderCard(o, { name_zh: t("orderFrom") + ": " + (o.customerName || "?") + (o.customerEmail ? " (" + o.customerEmail + ")" : ""), name_my: "", name_en: "" }, true)
   ).join("");
@@ -2287,6 +2339,7 @@ async function viewAdmin() {
     '<div class="tab' + (adminTab === "shops" ? " active" : "") + '" onclick="setAdminTab(\'shops\')">🏪 ' + esc(t("allShops")) + "</div>" +
     '<div class="tab' + (adminTab === "users" ? " active" : "") + '" onclick="setAdminTab(\'users\')">👥 ' + esc(t("allUsers")) + "</div>" +
     '<div class="tab' + (adminTab === "orders" ? " active" : "") + '" onclick="setAdminTab(\'orders\')">📦 ' + esc(t("allOrders")) + "</div>" +
+    '<div class="tab' + (adminTab === "reports" ? " active" : "") + '" onclick="setAdminTab(\'reports\')">🚩 ' + esc(t("reports")) + "</div>" +
     "</div><div id=\"atab\"></div>";
   const box = document.getElementById("atab");
   if (adminTab === "shops") {
@@ -2300,16 +2353,40 @@ async function viewAdmin() {
       "</div></div>" +
       list.map(s => '<div class="card"><b>' + esc(shopName(s)) + "</b>" +
         (s.sample ? '<span class="badge">' + esc(t("sampleBadge")) + "</span>" : "") +
+        (s.approved ? "" : ' <span class="badge" style="background:#fff3cd;color:#856404">' + esc(t("pendingShops")) + "</span>") +
         '<div class="muted">' + esc(s.ownerName || "") + " · " + esc(s.phone || "") + "</div>" +
-        '<div class="rowbtns"><button class="btn small gray" onclick="adminDelShop(\'' + s.id + "')\">" + esc(t("del")) + "</button></div></div>").join("");
+        '<div class="rowbtns">' +
+        (!s.approved ? '<button class="btn small green" onclick="adminApproveShop(\'' + s.id + "',true)\">" + esc(t("approve")) + "</button>" : "") +
+        '<button class="btn small gray" onclick="adminDelShop(\'' + s.id + "')\">" + esc(t("del")) + "</button></div></div>").join("");
   } else if (adminTab === "users") {
     const { data, error } = await sb.from("users").select("*");
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
     const list = (data || []).map(mapUser);
     box.innerHTML = '<div class="card"><table class="list"><tr><th>' + esc(t("yourName")) +
-      "</th><th>" + esc(t("email")) + "</th><th>role</th></tr>" +
-      list.map(u => "<tr><td>" + esc(u.name || "") + "</td><td>" + esc(u.email || "") + "</td><td>" + esc(u.role || "") + "</td></tr>").join("") +
+      "</th><th>" + esc(t("email")) + "</th><th>role</th><th></th></tr>" +
+      list.map(u => "<tr><td>" + esc(u.name || "") + "</td><td>" + esc(u.email || "") + "</td><td>" + esc(u.role || "") +
+        (u.banned ? ' <span class="badge" style="background:#f8d7da;color:#721c24">' + esc(t("banned")) + "</span>" : "") + "</td>" +
+        '<td><button class="btn small ' + (u.banned ? "" : "gray") + '" onclick="adminBanUser(\'' + u.id + "'," + (!u.banned) + ')">' + esc(t(u.banned ? "unban" : "ban")) + "</button></td></tr>").join("") +
       "</table></div>";
+  } else if (adminTab === "reports") {
+    const { data, error } = await sb.from("reports").select("*").order("created_at", { ascending: false }).limit(100);
+    if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
+    const list = data || [];
+    const uids = [...new Set(list.flatMap(r => [r.reporter_id, r.reported_user_id]))];
+    let unames = {};
+    if (uids.length) {
+      const { data: us } = await sb.from("users").select("id,first_name,last_name,email").in("id", uids);
+      (us || []).forEach(u => { unames[u.id] = ((u.first_name || "") + " " + (u.last_name || "")).trim() || u.email || u.id.slice(0, 8); });
+    }
+    box.innerHTML = list.length ? list.map(r =>
+      '<div class="card"><b>' + esc(unames[r.reported_user_id] || "?") + '</b>' +
+      ' <span class="status ' + (r.status === "open" ? "pending" : "done") + '">' + esc(r.status) + "</span>" +
+      '<div class="muted">' + esc(t("report")) + ": " + esc(unames[r.reporter_id] || "?") + " · " + esc(fmtTime(r.created_at)) + "</div>" +
+      (r.reason ? "<div>" + esc(r.reason) + "</div>" : "") +
+      '<div class="rowbtns">' +
+      '<button class="btn small ' + (r.status === "open" ? "gray" : "") + '" onclick="adminBanUser(\'' + r.reported_user_id + "',true)\">" + esc(t("ban")) + "</button>" +
+      '<button class="btn small gray" onclick="adminResolveReport(\'' + r.id + "')\">" + esc(t("del")) + "</button></div></div>").join("")
+      : '<div class="card center muted">' + esc(t("noChats")) + "</div>";
   } else {
     const { data, error } = await sb.from("orders").select("*").order("created_at", { ascending: false });
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
@@ -2321,6 +2398,19 @@ async function viewAdmin() {
   }
 }
 function setAdminTab(tab) { adminTab = tab; viewAdmin(); }
+async function adminApproveShop(id) {
+  const { error } = await sb.from("shops").update({ approved: true }).eq("id", id);
+  if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
+}
+async function adminBanUser(uid, ban) {
+  if (ban && !(await confirmDlg(t("ban") + "?"))) return;
+  const { error } = await sb.from("users").update({ banned: !!ban }).eq("id", uid);
+  if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
+}
+async function adminResolveReport(id) {
+  const { error } = await sb.from("reports").delete().eq("id", id);
+  if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
+}
 async function adminDelShop(id) {
   if (!(await confirmDlg(t("confirmDelete")))) return;
   try {
