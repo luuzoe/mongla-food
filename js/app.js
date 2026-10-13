@@ -1086,8 +1086,8 @@ async function viewVendor() {
     '<button class="btn small" style="position:absolute;top:8px;right:8px;padding:6px 10px" onclick="editShopInfo()">✏️</button>' +
     '<div style="position:relative;flex-shrink:0" onclick="document.getElementById(\'v-photo\').click()">' +
     (myShop.photo_url
-      ? '<img src="' + esc(myShop.photo_url) + '" alt="" style="width:88px;height:88px;border-radius:50%;object-fit:cover;display:block">'
-      : '<div style="width:88px;height:88px;border-radius:50%;background:#fce4ec;display:flex;align-items:center;justify-content:center;font-size:38px">🏪</div>') +
+      ? '<img src="' + esc(myShop.photo_url) + '" alt="" style="width:112px;height:112px;border-radius:50%;object-fit:cover;display:block">'
+      : '<div style="width:112px;height:112px;border-radius:50%;background:#fce4ec;display:flex;align-items:center;justify-content:center;font-size:48px">🏪</div>') +
     '<div style="position:absolute;right:-2px;bottom:-2px;background:var(--pink);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid #fff">📷</div></div>' +
     '<input id="v-photo" type="file" accept="image/*" style="display:none" onchange="uploadShopPhoto()">' +
     '<div style="flex:1;min-width:0;padding-right:40px">' +
