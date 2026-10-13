@@ -583,7 +583,9 @@ function viewHelp() {
     '<div class="card"><h2>❓ ' + esc(t("helpTitle")) + "</h2>" +
     "<h3>" + esc(t("helpQ1")) + "</h3><p>" + esc(t("helpA1")) + "</p>" +
     "<h3>" + esc(t("helpQ2")) + "</h3><p>" + esc(t("helpA2")) + "</p>" +
-    "<h3>" + esc(t("helpQ3")) + "</h3><p>" + esc(t("helpA3")) + "</p></div>";
+    "<h3>" + esc(t("helpQ3")) + "</h3><p>" + esc(t("helpA3")) + "</p>" +
+    "<h3>" + esc(t("helpQ4")) + "</h3><p>" + esc(t("helpA4")) + "</p>" +
+    "<h3>" + esc(t("helpQ5")) + "</h3><p>" + esc(t("helpA5")) + "</p></div>";
 }
 /* Contact Us: business phone as a tappable tel: link. */
 function viewContact() {
@@ -2455,6 +2457,7 @@ async function viewDriver() {
   app.innerHTML = "<h2>" + esc(t("deliveries")) + '</h2><div class="tabs">' +
     '<div class="tab active" id="dtab-avail" onclick="setDriverTab(0)">' + esc(t("availableOrders")) + "</div>" +
     '<div class="tab" id="dtab-mine" onclick="setDriverTab(1)">' + esc(t("myDeliveries")) + "</div>" +
+    '<div class="tab" id="dtab-hist" onclick="setDriverTab(2)">' + esc(t("history")) + "</div>" +
     '</div><div id="dbody"><div class="center muted">…</div></div>';
   drawDriverTab(window._driverTab || 0);
 }
@@ -2462,6 +2465,7 @@ function setDriverTab(i) {
   window._driverTab = i;
   document.getElementById("dtab-avail").className = "tab" + (i === 0 ? " active" : "");
   document.getElementById("dtab-mine").className = "tab" + (i === 1 ? " active" : "");
+  document.getElementById("dtab-hist").className = "tab" + (i === 2 ? " active" : "");
   drawDriverTab(i);
 }
 async function drawDriverTab(i) {
@@ -2471,7 +2475,8 @@ async function drawDriverTab(i) {
   try {
     let q = sb.from("orders").select("*").order("created_at", { ascending: false }).limit(50);
     if (i === 0) q = q.eq("status", "ready").is("driver_id", null);
-    else q = q.eq("driver_id", currentUser.id).in("status", ["delivering"]);
+    else if (i === 1) q = q.eq("driver_id", currentUser.id).in("status", ["delivering"]);
+    else q = q.eq("driver_id", currentUser.id).eq("status", "done");
     const { data, error } = await q;
     if (error) throw error;
     const list = (data || []).map(mapOrder);
@@ -2479,17 +2484,32 @@ async function drawDriverTab(i) {
       box.innerHTML = '<div class="card center muted">' + esc(t(i === 0 ? "noAvailable" : "noOrders")) + "</div>";
       return;
     }
-    box.innerHTML = list.map(o =>
-      '<div class="card"><b>' + money(o.total) + '</b> <span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span>" +
-      '<div class="muted">' + esc(o.shopName || o.shopId || "") + " · " + esc(fmtTime(o.createdAt)) + "</div>" +
-      (o.deliveryAddress ? '<div class="muted">' + esc(o.deliveryAddress) + "</div>" : "") +
-      (o.customerPhone ? '<div><a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a></div>" : "") +
-      '<div class="rowbtns">' +
-      (i === 0
-        ? '<button class="btn small green" onclick="acceptDelivery(\'' + o.id + '\')">' + esc(t("acceptDelivery")) + "</button>"
-        : '<button class="btn small green" onclick="driverDelivered(\'' + o.id + '\')">' + esc(t("markDelivered")) + "</button>") +
-      "</div></div>").join("");
-  } catch (e) { box.innerHTML = '<div class="card">⚠️ ' + esc(e.message) + "</div>"; }
+    const sids = [...new Set(list.map(o => o.shopId).filter(Boolean))];
+    const shopMap = {};
+    if (sids.length) {
+      try {
+        const sr = await sb.from("shops").select("id,address_zh,address_my,phone").in("id", sids);
+        (sr.data || []).forEach(x => { shopMap[x.id] = x; });
+      } catch (e) {}
+    }
+    box.innerHTML = list.map(o => {
+      const sh = shopMap[o.shopId] || {};
+      const shAddr = sh.address_zh || sh.address_my || "";
+      const items = (o.items || []).map(it =>
+        "<div>\u2022 " + esc(it.name_my || it.name_zh || it.name_en || "") + " \u00d7 " + (it.qty || 0) + "</div>").join("");
+      return '<div class="card"><b>' + money(o.total) + '</b> <span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span>" +
+      '<div style="margin:6px 0">' + items + "</div>" +
+      (shAddr ? '<div class="muted">\uD83C\uDFEA ' + esc(shAddr) + (sh.phone ? " \u00b7 " + esc(sh.phone) : "") + "</div>" : "") +
+      '<div class="muted">\uD83D\uDCCD ' + esc(o.deliveryAddress || "") + "</div>" +
+      '<div class="muted">\uD83D\uDC64 ' + esc(o.customerName || "") + (o.customerPhone ? ' \u00b7 <a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a>" : "") + "</div>" +
+      '<div class="muted">' + esc(fmtTime(o.createdAt)) + "</div>" +
+      (i === 0 ? '<div class="rowbtns" style="display:flex;gap:8px"><button class="btn small green" data-acc="' + o.id + '">' + esc(t("acceptDelivery")) + "</button></div>"
+        : i === 1 ? '<div class="rowbtns" style="display:flex;gap:8px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + "</button></div>" : "") +
+      "</div>";
+    }).join("");
+    box.querySelectorAll("[data-acc]").forEach(b => b.onclick = () => acceptDelivery(b.getAttribute("data-acc")));
+    box.querySelectorAll("[data-dlv]").forEach(b => b.onclick = () => driverDelivered(b.getAttribute("data-dlv")));
+  } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message) + "</div>"; }
 }
 async function acceptDelivery(orderId) {
   const { error } = await sb.from("orders").update({ driver_id: currentUser.id, status: "delivering" }).eq("id", orderId).is("driver_id", null);
