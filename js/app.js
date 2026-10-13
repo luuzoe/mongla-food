@@ -2492,7 +2492,8 @@ function ensureDriverOrderWatch() {
   window._drvCh = ch;
   // listen for claims by other drivers -> refresh immediately
   try {
-    const bc = sb.channel("driver-broadcast-listen-" + uid);
+    if (window._drvBc) { try { sb.removeChannel(window._drvBc); } catch (e) {} }
+    const bc = sb.channel("driver-broadcast");
     bc.on("broadcast", { event: "claimed" }, (payload) => {
       if (payload && payload.payload && payload.payload.orderId) {
         if (location.hash === "#/driver") drawDriverTab(window._driverTab || 0);
