@@ -68,7 +68,8 @@ function mapOrder(r) {
     note: r.note || "", deliveryFee: Number(r.delivery_fee_yuan) || 0,
     convId: r.conversation_id, customerName: r.customer_name,
     customerEmail: r.customer_email, createdAt: r.created_at, payMethod: r.payment_method || "cod", payTxn: r.payment_txn || "",
-    driverId: r.driver_id || null, driverArchived: r.driver_archived === true
+    driverId: r.driver_id || null, driverArchived: r.driver_archived === true,
+    vendorArchived: r.vendor_archived === true
   };
 }
 function mapPost(r) {
@@ -1628,6 +1629,8 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "delivering") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','done')\">" + esc(t("completeOrder")) + "</button>";
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
+    if (o.status === "done" || o.status === "cancelled")
+      btns += '<button class="btn small gray" data-varch="' + o.id + '">' + esc(t("del")) + "</button>";
   } else {
     const uc = ((window._unreadByConv || {})[o.convId] || 0);
     btns += '<button class="btn small" data-chatbtn="' + o.id + '" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + (uc ? ' <span class="ubadge">' + uc + "</span>" : "") + "</button>";
@@ -2167,7 +2170,7 @@ async function drawVendorOrders() {
   unsubs.push(ch);
   box.innerHTML = '<div class="center muted">…</div>';
   const { data, error } = await sb.from("orders").select("*")
-    .eq("vendor_id", currentUser.id).order("created_at", { ascending: false });
+    .eq("vendor_id", currentUser.id).eq("vendor_archived", false).order("created_at", { ascending: false });
   if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
   const list = (data || []).map(mapOrder);
   if (!list.length) { box.innerHTML = '<div class="card center muted">' + esc(t("noOrders")) + "</div>"; return; }
@@ -2196,6 +2199,14 @@ async function drawVendorOrders() {
   box.innerHTML = salesHtml + list.map(o =>
     orderCard(o, { name_zh: t("orderFrom") + ": " + (o.customerName || "?") + (o.customerEmail ? " (" + o.customerEmail + ")" : ""), name_my: "", name_en: "" }, true)
   ).join("");
+  box.querySelectorAll("[data-varch]").forEach(b => b.onclick = () => archiveVendorOrder(b.getAttribute("data-varch")));
+}
+
+async function archiveVendorOrder(orderId) {
+  if (!(await confirmDlg(t("del") + "?"))) return;
+  const { error } = await sb.from("orders").update({ vendor_archived: true }).eq("id", orderId).eq("vendor_id", currentUser.id);
+  if (error) toast("⚠️ " + error.message);
+  else drawVendorOrders();
 }
 
 /* ---------- vendor posts （商家动态） ---------- */
