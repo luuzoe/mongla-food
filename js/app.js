@@ -635,18 +635,18 @@ function drawDishGrid() {
     const nm = itemName(d);
     const nm2 = LANG === "zh" ? (d.name_my || "") : (d.name_zh || "");
     const shopLabel = LANG === "en" ? (d.shop_en || d.shop_zh) : (LANG === "my" ? (d.shop_my || d.shop_zh) : d.shop_zh);
-    return '<div class="dish-card"><div class="dish-photo-wrap">' + dishPhotoHTML(d) +
-      '<button class="fav-star' + (isFav(d.key) ? ' on' : '') + '" onclick="toggleFav(\'' + d.key + '\')">' + (isFav(d.key) ? '\u2605' : '\u2606') + '</button></div>' +
+    return '<div class="dish-card" onclick="location.hash=\'#/shop/' + d.shopId + "'\"><div class=\"dish-photo-wrap\">" + dishPhotoHTML(d) +
+      '<button class="fav-star' + (isFav(d.key) ? ' on' : '') + '" onclick="event.stopPropagation();toggleFav(\'' + d.key + '\')">' + (isFav(d.key) ? '\u2605' : '\u2606') + '</button></div>' +
       '<div class="dish-body">' +
       '<div class="dish-name">' + esc(nm) + "</div>" +
       (nm2 ? '<div class="dish-name2">' + esc(nm2) + "</div>" : "") +
-      '<div class="dish-shop" onclick="location.hash=\'#/shop/' + d.shopId + "'\">🏪 " + esc(shopLabel) + "</div>" +
+      '<div class="dish-shop">🏪 ' + esc(shopLabel) + "</div>" +
       '<div data-rp="' + d.itemId + '"></div>' +
       '<div class="dish-foot"><div class="dish-price">' + money(d.price) + "</div>" +
       (inCart > 0
-        ? '<div class="qty-ctrl"><button onclick="dishOrder(\'' + d.key + "',-1)\">−</button><b>" + inCart + "</b>" +
-          '<button onclick="dishOrder(\'' + d.key + "',1)\">＋</button></div>"
-        : '<button class="btn small" onclick="dishOrder(\'' + d.key + "',1)\">" + esc(t("order")) + "</button>") +
+        ? '<div class="qty-ctrl"><button onclick="event.stopPropagation();dishOrder(\'' + d.key + "',-1)\">−</button><b>" + inCart + "</b>" +
+          '<button onclick="event.stopPropagation();dishOrder(\'' + d.key + "',1)\">＋</button></div>"
+        : '<button class="btn small" onclick="event.stopPropagation();dishOrder(\'' + d.key + "',1)\">" + esc(t("order")) + "</button>") +
       "</div></div></div>";
   }).join("");
   loadRateBadges(box);

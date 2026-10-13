@@ -308,3 +308,4 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
 .chat-page .card { display: flex; flex-direction: column; flex: 1; min-height: 0; margin: 0; }
 .chat-page .card > h3 { display: none; }
 .chat-page .chatbox { flex: 1; height: auto; min-height: 0; }
+.dish-card{cursor:pointer}
