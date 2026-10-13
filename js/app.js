@@ -1124,6 +1124,7 @@ async function viewOrders() {
     .subscribe();
   unsubs.push(ch);
 }
+function chatWithShop(shopId) { shopTab = "chat"; location.hash = "#/shop/" + shopId; }
 function orderCard(o, shop, isVendor) {
   const items = (o.items || []).map(it =>
     "<div>" + esc(itemName(it)) +
@@ -1135,8 +1136,10 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "delivering") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','done')\">" + esc(t("completeOrder")) + "</button>";
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
-  } else if (o.status === "pending") {
-    btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
+  } else {
+    btns += '<button class="btn small" onclick="chatWithShop(\'' + o.shopId + "')\">" + "💬 " + esc(t("chat")) + "</button>";
+    if (o.status === "pending")
+      btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
   }
   return '<div class="card order-card2"><div style="display:flex;justify-content:space-between;align-items:center">' +
     "<b>" + esc(shop ? shopName(shop) : o.shopId) + "</b>" +
