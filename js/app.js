@@ -320,7 +320,10 @@ function viewProfile() {
   if (currentUser) {
     app.innerHTML =
       '<div class="card"><h2>👤 ' + esc(t("myAccount")) + "</h2>" +
-      '<div class="profile-row"><span class="k">' + esc(t("yourName")) + "</span><span>" + esc((userDoc && userDoc.name) || currentUser.email) + "</span></div>" +
+      '<div class="profile-row"><span class="k">' + esc(t("yourName")) + "</span>" +
+      '<span id="p-name-row" style="display:flex;gap:6px;align-items:center">' +
+      "<span>" + esc((userDoc && userDoc.name) || currentUser.email) + "</span>" +
+      '<button class="btn small gray" onclick="editProfileName()">✏️</button></span></div>' +
       '<div class="profile-row"><span class="k">' + esc(t("email")) + "</span><span>" + esc(currentUser.email || "-") + "</span></div>" +
       '<div class="profile-row"><span class="k">' + esc(t("role")) + "</span><span>" + esc((userDoc && userDoc.role) || "-") + "</span></div>" +
       '<button class="btn" style="width:100%;margin-top:10px" onclick="location.hash=\'#/orders\'">📦 ' + esc(t("orders")) + "</button>" +
@@ -341,8 +344,7 @@ function viewProfile() {
         (regRole === "vendor"
           ? '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="f-shopname"></div>' +
             '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="f-ownername"></div>'
-          : '<div class="field"><label>' + esc(t("firstName")) + '</label><input id="f-fn"></div>' +
-            '<div class="field"><label>' + esc(t("lastName")) + '</label><input id="f-ln"></div>') +
+          : '<div class="field"><label>' + esc(t("yourName")) + '</label><input id="f-name"></div>') +
         '<div class="field"><label>' + esc(t("phoneOrEmail")) + '</label><input id="f-contact" placeholder="09xxxxxxxxx / you@gmail.com"></div>' +
         '<div class="field"><label>' + esc(t("password")) + '</label><input id="f-pass2" type="password"></div>' +
         '<button class="btn" style="width:100%" onclick="doCreateAccount()">' + esc(t("createAccount")) + "</button>" +
@@ -388,15 +390,14 @@ async function doCreateAccount() {
   const isVendor = regRole === "vendor";
   const shopNm = isVendor ? document.getElementById("f-shopname").value.trim() : "";
   const ownerNm = isVendor ? document.getElementById("f-ownername").value.trim() : "";
-  const fn = !isVendor ? document.getElementById("f-fn").value.trim() : "";
-  const ln = !isVendor ? document.getElementById("f-ln").value.trim() : "";
+  const custName = !isVendor ? document.getElementById("f-name").value.trim() : "";
   const contact = document.getElementById("f-contact").value.trim();
   const pass = document.getElementById("f-pass2").value;
   const errBox = document.getElementById("auth-err");
   const showErr = (m) => { if (errBox) errBox.textContent = "⚠️ " + m; };
-  const name = isVendor ? ownerNm : ((fn + " " + ln).trim() || contact.split("@")[0]);
   try {
     if (isVendor && (!shopNm || !ownerNm)) throw new Error(t("fillShopInfo"));
+    if (!isVendor && !custName) throw new Error(t("enterName"));
     let email = contact, phone = "";
     if (contact.indexOf("@") < 0) {
       // Phone-number signup: Supabase email/password auth needs an email address,
@@ -421,8 +422,8 @@ async function doCreateAccount() {
     // upsert: the auth-state handler may already have created a customer row
     const { error: upErr } = await sb.from("users").upsert({
       id: user.id, role: regRole,
-      first_name: isVendor ? ownerNm : fn,
-      last_name: isVendor ? "" : ln,
+      first_name: isVendor ? ownerNm : custName,
+      last_name: "",
       email: contact, phone: phone
     }, { onConflict: "id" });
     if (upErr) throw upErr;
@@ -452,6 +453,31 @@ async function doGoogleLogin() {
     // Browser redirects to Google; on return, handleSession() creates the
     // users row (role: customer) if this is the first login.
   } catch (e) { if (errBox) errBox.textContent = "⚠️ " + (e.message || e); }
+}
+function editProfileName() {
+  const row = document.getElementById("p-name-row");
+  if (!row) return;
+  const cur = (userDoc && userDoc.name) || "";
+  row.innerHTML = '<input id="p-name" value="' + esc(cur) + '" style="flex:1;min-width:0">' +
+    '<button class="btn small" id="p-name-save">' + esc(t("save")) + "</button>";
+  const inp = document.getElementById("p-name");
+  inp.focus();
+  document.getElementById("p-name-save").onclick = saveProfileName;
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") saveProfileName(); });
+}
+async function saveProfileName() {
+  const inp = document.getElementById("p-name");
+  const v = (inp && inp.value.trim()) || "";
+  if (!v || !currentUser) return;
+  try {
+    const { error } = await sb.from("users").update({ first_name: v, last_name: "" }).eq("id", currentUser.id);
+    if (error) throw error;
+    // keep the name vendors see in their chat lists in sync
+    await sb.from("conversations").update({ customer_name: v }).eq("customer_id", currentUser.id);
+    if (userDoc) { userDoc.first_name = v; userDoc.last_name = ""; userDoc.name = v; }
+    viewProfile();
+    toast("\u2705");
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
 }
 async function doLogout() { await sb.auth.signOut(); location.hash = "#/"; }
 

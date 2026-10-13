@@ -15,6 +15,7 @@ const STR = {
   email:              { zh: "邮箱", my: "အီးမေးလ်", en: "Email" },
   password:           { zh: "密码", my: "စကားဝှက်", en: "Password" },
   yourName:           { zh: "你的名字", my: "သင့်နာမည်", en: "Your name" },
+  enterName:          { zh: "请输入名字", my: "နာမည်ထည့်ပါ", en: "Please enter your name" },
   firstName:          { zh: "名", my: "နာမည် (ရှေ့)", en: "First name" },
   lastName:           { zh: "姓", my: "နာမည် (နောက်)", en: "Last name" },
   phoneOrEmail:       { zh: "手机号或邮箱", my: "ဖုန်းနံပါတ် သို့မဟုတ် Gmail", en: "Phone number or Gmail" },
