@@ -593,10 +593,13 @@ function viewSettings() {
   app.innerHTML =
     '<div class="card" style="padding:10px 12px"><h2 style="font-size:16px;margin:0 0 8px">⚙️ ' + esc(t("settings")) + "</h2>" +
     '<div class="field" style="margin-bottom:4px"><label style="font-size:12px">' + esc(t("chooseLanguage")) + "</label>" +
-    langs.map(([id, label]) =>
-      '<div class="lang-opt' + (LANG === id ? " active" : "") + '" style="padding:8px 10px;font-size:13px;margin-bottom:6px" onclick="setLang(\'' + id + "')\">" +
-      "<span>" + label + "</span>" + (LANG === id ? "<span>✓</span>" : "") + "</div>"
-    ).join("") + "</div></div>" +
+    '<div id="lang-drop" class="lang-opt active" style="padding:8px 10px;font-size:13px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center" onclick="document.getElementById(\'lang-opts\').style.display=document.getElementById(\'lang-opts\').style.display===\'none\'?\'block\':\'none\'">' +
+    "<span>" + (langs.find(([id]) => id === LANG) || langs[0])[1] + "</span><span>▾</span></div>" +
+    '<div id="lang-opts" style="display:none">' +
+    langs.filter(([id]) => id !== LANG).map(([id, label]) =>
+      '<div class="lang-opt" style="padding:8px 10px;font-size:13px;margin-bottom:6px" onclick="setLang(\'' + id + "')\">" +
+      "<span>" + label + "</span></div>"
+    ).join("") + "</div></div></div>" +
     '<div class="card" style="padding:10px 12px"><h3 style="font-size:14px;margin:0 0 8px">📍 ' + esc(t("savedContact")) + "</h3>" +
     '<div class="field" style="margin-bottom:8px"><label style="font-size:12px">' + esc(t("deliveryAddress")) + '</label><input id="s-addr" style="padding:8px;font-size:13px" value="' + esc(getPref("addr", "")) + '"></div>' +
     '<div class="field" style="margin-bottom:8px"><label style="font-size:12px">' + esc(t("deliveryPhone")) + '</label><input id="s-phone" style="padding:8px;font-size:13px" value="' + esc(getPref("phone", "")) + '"></div>' +
