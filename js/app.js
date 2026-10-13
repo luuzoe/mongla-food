@@ -823,9 +823,34 @@ function postOrder(key, delta) {
 
 /* ---------- shop detail ---------- */
 let shopCache = {};
+function promptDlg(msg) { return new Promise((resolve) => {
+  const ov = ensureModal();
+  const msgEl = document.getElementById("modalMsg");
+  msgEl.innerHTML = "";
+  const label = document.createElement("div");
+  label.textContent = msg;
+  label.style.marginBottom = "10px";
+  const inp = document.createElement("textarea");
+  inp.rows = 3;
+  inp.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:15px;resize:vertical";
+  msgEl.appendChild(label);
+  msgEl.appendChild(inp);
+  const btns = document.getElementById("modalBtns");
+  btns.innerHTML = "";
+  const bNo = document.createElement("button");
+  bNo.className = "btn gray"; bNo.textContent = t("cancel");
+  const bYes = document.createElement("button");
+  bYes.className = "btn"; bYes.textContent = t("report");
+  const done = (v) => { ov.classList.remove("open"); resolve(v); };
+  bNo.onclick = () => done(null);
+  bYes.onclick = () => done(inp.value.trim());
+  btns.appendChild(bNo); btns.appendChild(bYes);
+  ov.classList.add("open");
+  setTimeout(() => inp.focus(), 100);
+});}
 async function openReport(reportedUid) {
   if (!currentUser || !reportedUid || reportedUid === currentUser.id) return;
-  var reason = prompt(t("reportReason"));
+  const reason = await promptDlg(t("reportReason"));
   if (reason === null) return;
   try {
     var r = await sb.from("reports").insert({ reporter_id: currentUser.id, reported_user_id: reportedUid, reason: reason || "" });
