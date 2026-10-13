@@ -55,6 +55,30 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 90px; }
   font-size: 12px; font-weight: 700; padding: 0 6px; margin-left: 6px;
   vertical-align: middle;
 }
+/* ratings */
+.rate-pill {
+  display: inline-block; font-size: 12px; font-weight: 700; color: #b47b00;
+  background: #fff7e0; border: 1px solid #f0d98c; border-radius: 20px;
+  padding: 2px 8px; margin-top: 4px; cursor: pointer;
+}
+.stars { font-size: 26px; letter-spacing: 2px; cursor: pointer; user-select: none; }
+.stars span { color: #ccc; }
+.stars.on span { color: #ffb400; }
+.rate-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.rate-row .stars { font-size: 22px; }
+.review { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.review .meta { font-size: 12px; color: #999; }
+/* modal overlay */
+.modal-ov {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 999;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal {
+  background: #fff; border-radius: 14px; padding: 16px; width: 100%;
+  max-width: 420px; max-height: 85vh; overflow-y: auto;
+}
+.modal h3 { margin: 0 0 10px; }
+.modal textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 10px; padding: 8px; font-size: 14px; }
 .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
 .toolbar input[type=search] {
   flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);

@@ -607,6 +607,7 @@ function drawDishGrid() {
       '<div class="dish-name">' + esc(nm) + "</div>" +
       (nm2 ? '<div class="dish-name2">' + esc(nm2) + "</div>" : "") +
       '<div class="dish-shop" onclick="location.hash=\'#/shop/' + d.shopId + "'\">🏪 " + esc(shopLabel) + "</div>" +
+      '<div data-rp="' + d.itemId + '"></div>' +
       '<div class="dish-foot"><div class="dish-price">' + money(d.price) + "</div>" +
       (inCart > 0
         ? '<div class="qty-ctrl"><button onclick="dishOrder(\'' + d.key + "',-1)\">−</button><b>" + inCart + "</b>" +
@@ -614,6 +615,7 @@ function drawDishGrid() {
         : '<button class="btn small" onclick="dishOrder(\'' + d.key + "',1)\">" + esc(t("order")) + "</button>") +
       "</div></div></div>";
   }).join("");
+  loadRateBadges(box);
 }
 /* ---------- vendor posts feed (homepage + shop page) ----------
  * Post cards are compact like dish cards and orderable: tapping the order
@@ -780,7 +782,7 @@ async function drawMenuTab(id, s) {
   body.innerHTML = '<div class="card">' + items.map(it => {
     const key = id + "__" + it.id;
     const inCart = cart.items[key] ? cart.items[key].qty : 0;
-    return '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + "</div>" +
+    return '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + ' <span data-rp="' + it.id + '"></span></div>' +
       '<div class="pr">' + money(it.price) + "</div></div>" +
       '<div class="qty-ctrl">' +
       (inCart > 0 ? '<button onclick="cartQty(\'' + id + "','" + it.id + "',-1)\">−</button><b>" + inCart + "</b>" : "") +
@@ -788,6 +790,7 @@ async function drawMenuTab(id, s) {
       "</div></div>";
   }).join("") + "</div>";
   renderCartBar();
+  loadRateBadges(body);
 }
 function cartQty(shopId, itemId, delta) {
   const key = shopId + "__" + itemId;
@@ -1124,6 +1127,154 @@ async function sendMedia(convId, inp) {
   } catch (e) { toast("\u26A0\uFE0F " + e.message); }
 }
 
+/* ---------- ratings & reviews ---------- */
+window._rateAvg = {};
+window._rateFetched = new Set();
+/* Fill every [data-rp=productId] badge with the average stars (cached). */
+async function loadRateBadges(root) {
+  const scope = root || document;
+  const els = [...scope.querySelectorAll("[data-rp]")];
+  if (!els.length) return;
+  const ids = [...new Set(els.map(e => e.getAttribute("data-rp")))]
+    .filter(id => id && /^[0-9a-f-]{36}$/i.test(id) && !window._rateFetched.has(id));
+  if (ids.length) {
+    try {
+      const { data } = await sb.from("ratings").select("product_id,stars").in("product_id", ids);
+      const agg = {};
+      (data || []).forEach(r => {
+        const a = agg[r.product_id] || (agg[r.product_id] = { s: 0, n: 0 });
+        a.s += r.stars; a.n++;
+      });
+      ids.forEach(id => {
+        window._rateFetched.add(id);
+        const a = agg[id];
+        window._rateAvg[id] = a ? { avg: a.s / a.n, count: a.n } : { avg: 0, count: 0 };
+      });
+    } catch (e) {}
+  }
+  els.forEach(e => {
+    const id = e.getAttribute("data-rp");
+    const r = window._rateAvg[id];
+    if (r && r.count > 0) {
+      e.innerHTML = '<span class="rate-pill">\u2605 ' + r.avg.toFixed(1) + " (" + r.count + ")</span>";
+      e.querySelector(".rate-pill").onclick = (ev) => { ev.stopPropagation(); showReviews(id); };
+    } else e.innerHTML = "";
+  });
+}
+/* Popup with recent comments for a product. */
+async function showReviews(productId) {
+  const m = document.createElement("div");
+  m.className = "modal-ov";
+  m.innerHTML = '<div class="modal"><h3>\u2B50 ' + esc(t("reviews")) + '</h3><div class="center muted">\u2026</div></div>';
+  document.body.appendChild(m);
+  m.onclick = (e) => { if (e.target === m) m.remove(); };
+  try {
+    const { data } = await sb.from("ratings").select("*").eq("product_id", productId)
+      .order("created_at", { ascending: false }).limit(30);
+    const list = data || [];
+    m.querySelector(".modal").innerHTML =
+      '<h3>\u2B50 ' + esc(t("reviews")) + ' <button class="btn small gray" id="rv-x" style="float:right">\u2715</button></h3>' +
+      (list.length ? list.map(r =>
+        '<div class="review"><div>' + "\u2605".repeat(r.stars) + "\u2606".repeat(5 - r.stars) +
+        ' <b>' + esc(r.customer_name || "") + "</b></div>" +
+        (r.comment ? "<div>" + esc(r.comment) + "</div>" : "") +
+        '<div class="meta">' + esc(fmtTime(r.created_at)) + "</div></div>").join("")
+        : '<div class="center muted">' + esc(t("noReviews")) + "</div>");
+    m.querySelector("#rv-x").onclick = () => m.remove();
+  } catch (e) {
+    m.querySelector(".modal").innerHTML = "\u26A0\uFE0F " + esc(e.message);
+  }
+}
+/* Rate every item of a completed order (stars + one comment). */
+function rateSheet(orderId) {
+  const o = (window._orderList || {})[orderId];
+  if (!o || !o.items || !o.items.length || needLogin()) return;
+  const m = document.createElement("div");
+  m.className = "modal-ov";
+  const rows = o.items.map((it, i) =>
+    '<div class="rate-row" data-i="' + i + '"><div style="flex:1">' + esc(itemName(it)) + "</div>" +
+    '<div class="stars">' + [1, 2, 3, 4, 5].map(n => '<span data-s="' + n + '">\u2606</span>').join("") + "</div></div>").join("");
+  m.innerHTML = '<div class="modal"><h3>\u2B50 ' + esc(t("rateOrder")) + "</h3>" + rows +
+    '<div class="field" style="margin-top:8px"><label>' + esc(t("comment")) + '</label>' +
+    '<textarea id="rate-comment" rows="2"></textarea></div>' +
+    '<div class="rowbtns"><button class="btn" id="rate-save">' + esc(t("save")) + "</button>" +
+    '<button class="btn gray" id="rate-cancel">' + esc(t("cancel")) + "</button></div></div>";
+  document.body.appendChild(m);
+  m.onclick = (e) => { if (e.target === m) m.remove(); };
+  const sel = {};
+  m.querySelectorAll(".rate-row").forEach(row => {
+    const i = row.getAttribute("data-i");
+    row.querySelectorAll(".stars span").forEach(sp => {
+      sp.onclick = () => {
+        sel[i] = Number(sp.getAttribute("data-s"));
+        row.querySelectorAll(".stars span").forEach(x => {
+          const on = Number(x.getAttribute("data-s")) <= sel[i];
+          x.textContent = on ? "\u2605" : "\u2606";
+          x.style.color = on ? "#ffb400" : "#ccc";
+        });
+      };
+    });
+  });
+  m.querySelector("#rate-cancel").onclick = () => m.remove();
+  m.querySelector("#rate-save").onclick = async () => {
+    if (!Object.keys(sel).length) { toast("\u26A0\uFE0F"); return; }
+    const comment = m.querySelector("#rate-comment").value.trim();
+    const btn = m.querySelector("#rate-save");
+    btn.disabled = true;
+    try {
+      for (const i of Object.keys(sel)) {
+        const it = o.items[Number(i)];
+        if (!it || !it.itemId || String(it.itemId).startsWith("post_")) continue;
+        await sb.from("ratings").upsert({
+          shop_id: o.shopId, product_id: it.itemId, customer_id: currentUser.id,
+          customer_name: (userDoc && userDoc.name) || currentUser.email || "",
+          stars: sel[i], comment: comment
+        }, { onConflict: "product_id,customer_id" });
+        window._rateFetched.delete(it.itemId);
+      }
+      toast("\u2705");
+      m.remove();
+      loadRateBadges(document);
+    } catch (e) { toast("\u26A0\uFE0F " + e.message); btn.disabled = false; }
+  };
+}
+/* One-tap reorder: put the order's items back into the cart (price/photo
+ * refreshed from the live menu; unavailable items are skipped). */
+async function reorder(orderId) {
+  const o = (window._orderList || {})[orderId];
+  if (!o || !o.items || !o.items.length || needLogin()) return;
+  toast("\u23F3");
+  try {
+    const [menuRes, shopRes] = await Promise.all([
+      sb.from("menu_items").select("*").eq("shop_id", o.shopId),
+      sb.from("shops").select("*").eq("id", o.shopId).single()
+    ]);
+    const byId = {};
+    (menuRes.data || []).forEach(x => byId[x.id] = x);
+    const sh = shopRes.data ? mapShop(shopRes.data) : {};
+    let added = 0, dropped = 0;
+    for (const it of o.items) {
+      const mid = String(it.itemId || "");
+      const cur = (!mid.startsWith("post_")) ? byId[it.itemId] : null;
+      if (!cur || cur.available === false) { dropped++; continue; }
+      const key = o.shopId + "__" + it.itemId;
+      const old = cart.items[key];
+      cart.items[key] = {
+        shopId: o.shopId, itemId: it.itemId, qty: (old ? old.qty : 0) + (it.qty || 1),
+        name_zh: cur.name_zh, name_my: cur.name_my, name_en: cur.name_en,
+        price: Number(cur.price_yuan) || 0, photoUrl: cur.photo_url, emoji: cur.emoji,
+        shop_zh: sh.name_zh, shop_my: sh.name_my, shop_en: sh.name_en
+      };
+      added++;
+    }
+    renderCartBar();
+    if (!added) { toast("\u26A0\uFE0F " + t("itemsDropped")); return; }
+    if (dropped) toast(t("reordered") + " · " + t("itemsDropped"));
+    else toast("\u2705 " + t("reordered"));
+    location.hash = "#/cart";
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+}
+
 /* ---------- customer orders ---------- */
 async function viewOrders() {
   if (needLogin()) return;
@@ -1146,6 +1297,7 @@ async function viewOrders() {
     }
     window._orderChatInfo = {};
     window._convToOrder = {};
+    window._orderList = {};
     const convIds = list.map(o => o.convId).filter(Boolean);
     let convById = {};
     if (convIds.length) {
@@ -1159,8 +1311,11 @@ async function viewOrders() {
       const sh = shops[o.shopId] || {};
       window._orderChatInfo[o.id] = { shopId: o.shopId, vendorUid: o.vendorUid, title: shopName(sh) };
       if (o.convId) window._convToOrder[o.convId] = o.id;
+      window._orderList[o.id] = o;
       return orderCard(o, sh, false);
     }).join("");
+    box.querySelectorAll("[data-reorder]").forEach(b => b.onclick = () => reorder(b.getAttribute("data-reorder")));
+    box.querySelectorAll("[data-rateorder]").forEach(b => b.onclick = () => rateSheet(b.getAttribute("data-rateorder")));
       // realtime: vendor replies -> bump the chat badge live (ping unless its chatbox is open)
       if (convIds.length) {
         const mch = sb.channel("my-msgs-" + currentUser.id)
@@ -1238,6 +1393,9 @@ function orderCard(o, shop, isVendor) {
     btns += '<button class="btn small" data-chatbtn="' + o.id + '" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + (uc ? ' <span class="ubadge">' + uc + "</span>" : "") + "</button>";
     if (o.status === "pending")
       btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
+    btns += '<button class="btn small" data-reorder="' + o.id + '">🔁 ' + esc(t("reorder")) + "</button>";
+    if (o.status === "done")
+      btns += '<button class="btn small" data-rateorder="' + o.id + '">⭐ ' + esc(t("rateIt")) + "</button>";
   }
   return '<div class="card order-card2"><div style="display:flex;justify-content:space-between;align-items:center">' +
     "<b>" + esc(shop ? shopName(shop) : o.shopId) + "</b>" +
@@ -1417,10 +1575,11 @@ async function drawVendorMenu() {
         '<button class="btn" style="width:100%" onclick="addMenuItem()">' + esc(t("add")) + "</button></div>"
       : "") +
     '<div class="card">' + (items.length ? items.map(it =>
-      '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + "</div>" +
+      '<div class="menu-item"><div class="info"><div class="nm">' + esc(itemName(it)) + ' <span data-rp="' + it.id + '"></span></div>' +
       '<div class="pr">' + money(it.price) + "</div></div>" +
       '<button class="btn small gray" onclick="delMenuItem(\'' + it.id + "')\">" + esc(t("del")) + "</button></div>"
     ).join("") : '<div class="muted center">—</div>') + "</div>";
+  loadRateBadges(box);
 }
 async function addMenuItem() {
   const nzh = document.getElementById("m-zh").value.trim();
