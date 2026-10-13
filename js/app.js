@@ -335,7 +335,6 @@ function viewProfile() {
       '<button class="btn small gray" onclick="editProfileName()">✏️</button></span></div>' +
       '<div class="profile-row"><span class="k">' + esc(t("email")) + "</span><span>" + esc(currentUser.email || "-") + "</span></div>" +
       '<div class="profile-row"><span class="k">' + esc(t("role")) + "</span><span>" + esc((userDoc && userDoc.role) || "-") + "</span></div>" +
-      '<button class="btn" style="width:100%;margin-top:10px" onclick="location.hash=\'#/orders\'">📦 ' + esc(t("orders")) + "</button>" +
       '<button class="btn" style="width:100%;margin-top:10px" onclick="doLogout()">🚪 ' + esc(t("logout")) + "</button></div>";
     return;
   }
