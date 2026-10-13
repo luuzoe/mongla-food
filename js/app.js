@@ -304,6 +304,7 @@ function renderAll() {
   if (h === "#/orders") return viewOrders();
   if (h.startsWith("#/chat/")) { const cid = h.split("/")[2]; return viewChatPage(cid); }
   if (h === "#/chats") return viewChats();
+  if (h === "#/vendor/orders") { vendorTab = "orders"; return viewVendor(); }
   if (h === "#/vendor") return viewVendor();
   if (h === "#/admin") return viewAdmin();
   if (h === "#/profile") return viewProfile();
@@ -1516,13 +1517,12 @@ async function viewVendor() {
     "</div></div>" +
     '<div class="tabs">' +
     '<div class="tab' + (vendorTab === "menu" ? " active" : "") + '" onclick="setVendorTab(\'menu\')">🍜 ' + esc(t("menu")) + "</div>" +
-    '<div class="tab' + (vendorTab === "chats" ? " active" : "") + '" onclick="setVendorTab(\'chats\')">💬 ' + esc(t("tabChats")) + "</div>" +
     '<div class="tab' + (vendorTab === "orders" ? " active" : "") + '" onclick="setVendorTab(\'orders\')">📦 ' + esc(t("tabOrders")) + "</div>" +
     '<div class="tab' + (vendorTab === "posts" ? " active" : "") + '" onclick="setVendorTab(\'posts\')">📢 ' + esc(t("posts")) + "</div>" +
     "</div><div id=\"vtab\"></div>";
+  if (vendorTab === "chats") vendorTab = "menu";
   if (vendorTab === "info") drawVendorInfo();
   if (vendorTab === "menu") drawVendorMenu();
-  if (vendorTab === "chats") drawVendorChats();
   if (vendorTab === "orders") drawVendorOrders();
   if (vendorTab === "posts") drawVendorPosts();
 }
@@ -2075,11 +2075,11 @@ function renderTapbar() {
     tabs = [
       { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
       chatTab,
+      { ic: "📦", label: t("tabOrders"), hash: "#/vendor/orders", active: h === "#/vendor/orders" },
       { ic: "🏪", label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" }
     ];
     if (role === "admin")
       tabs.push({ ic: "🛠", label: t("adminPanel"), hash: "#/admin", active: h === "#/admin" });
-    tabs.push({ ic: "👤", label: t("profile"), hash: "#/profile", active: h === "#/profile" });
   } else {
     tabs = [
       { ic: "🏠", label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
