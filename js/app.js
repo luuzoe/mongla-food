@@ -293,18 +293,46 @@ async function handleSession(session) {
             .then(() => {}, () => {});
         }
       } else {
-        // First login via OAuth (e.g. Google): create the profile row.
-        // (Email signups insert their own row in doCreateAccount.)
-        let oauthRole = "customer";
-        try { oauthRole = localStorage.getItem("mf_oauth_role") || "customer"; localStorage.removeItem("mf_oauth_role"); } catch (e) {}
+        // First login (OAuth, or email-confirm redirect): create the profile row.
+        // Email signups normally insert their own row in doCreateAccount(); when
+        // email confirmation was pending, the redirect lands here instead, so
+        // restore the stashed registration intent (mf_pending_reg).
+        let oauthRole = "customer", pendingReg = null;
+        try {
+          const pr = localStorage.getItem("mf_pending_reg");
+          if (pr) {
+            const parsed = JSON.parse(pr);
+            // Only apply to the account this stash was created for.
+            if (parsed && parsed.auth_email && currentUser.email &&
+                parsed.auth_email === currentUser.email) pendingReg = parsed;
+            localStorage.removeItem("mf_pending_reg");
+          }
+        } catch (e) {}
+        try { oauthRole = (pendingReg && pendingReg.role) || localStorage.getItem("mf_oauth_role") || "customer"; localStorage.removeItem("mf_oauth_role"); } catch (e) {}
+        const regFirst = (pendingReg && pendingReg.first_name) || "";
+        const regPhone = (pendingReg && pendingReg.phone) || "";
         const { error: insErr } = await sb.from("users").insert({
           id: currentUser.id, role: oauthRole,
-          first_name: "", last_name: "",
-          email: currentUser.email || "", phone: ""
+          first_name: regFirst, last_name: "",
+          email: (pendingReg && pendingReg.email) || currentUser.email || "", phone: regPhone
         });
         if (!insErr) {
           const r2 = await sb.from("users").select("*").eq("id", currentUser.id).single();
           if (!r2.error && r2.data) userDoc = mapUser(r2.data);
+          // Vendor signed up while email confirmation was pending: create their
+          // shop now (doCreateAccount's auto-shop-create was skipped there).
+          if (pendingReg && pendingReg.role === "vendor" && pendingReg.shop_name) {
+            try {
+              const ex = await sb.from("shops").select("id").eq("owner_id", currentUser.id).limit(1);
+              if (!ex.error && (!ex.data || !ex.data.length)) {
+                await sb.from("shops").insert({
+                  name_zh: pendingReg.shop_name,
+                  owner_name: pendingReg.owner_name || regFirst,
+                  owner_id: currentUser.id, sample: false
+                });
+              }
+            } catch (e) { console.warn("pending-reg shop create failed", e); }
+          }
         }
       }
     } catch (e) { console.warn("userDoc load failed", e); }
@@ -587,6 +615,17 @@ async function doCreateAccount() {
       // session — try an immediate sign-in (works when Confirm email is OFF).
       const s2 = await sb.auth.signInWithPassword({ email: email, password: pass });
       if (s2.error) {
+        // Email confirmation pending: stash the registration intent so the
+        // post-redirect handleSession() can create the profile row + shop
+        // (this tab's JS state is lost when the user leaves for Gmail).
+        try {
+          localStorage.setItem("mf_pending_reg", JSON.stringify({
+            auth_email: email, role: regRole || "customer",
+            first_name: isVendor ? ownerNm : custName,
+            email: contact, phone: phone,
+            shop_name: isVendor ? shopNm : "", owner_name: isVendor ? ownerNm : ""
+          }));
+        } catch (e) {}
         // Email confirmation pending: show waiting screen, auto-login on click.
         showConfirmWaiting(contact, email, pass);
         return;
@@ -732,8 +771,15 @@ async function viewHome() {
     '<div class="muted">' + esc(t("tagline")) + "</div></div>" +
     '<div class="toolbar"><input type="search" id="q" placeholder="' + esc(t("searchDishes")) +
       '" value="' + esc(homeFilter.q) + '"></div>' +
+    '<div class="chips" id="chips"></div>' +
     '<h3 style="margin:4px 0 8px">🍽 ' + esc(t("unifiedMenu")) + '</h3><div class="dish-grid" id="dishGrid"></div>' +
     '<div id="feedSection"></div>';
+  const chips = document.getElementById("chips");
+  chips.innerHTML = CATEGORIES.map(c =>
+    '<div class="chip' + (homeFilter.cat === c.id ? " active" : "") + '" data-cat="' + c.id + '">' +
+    esc(catName(c.id)) + "</div>").join("");
+  chips.querySelectorAll(".chip").forEach(ch =>
+    ch.onclick = () => { homeFilter.cat = ch.getAttribute("data-cat"); viewHome(); });
   document.getElementById("q").oninput = (e) => { homeFilter.q = e.target.value; drawDishGrid(); };
   try {
     // one query: shops + their menus (public read, no login needed)
