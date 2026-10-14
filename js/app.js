@@ -483,6 +483,43 @@ function setRegRole(r) {
   });
 }
 function setAuthMode(m) { authMode = m; viewProfile(); }
+/* Waiting-for-email-confirmation screen. After the user clicks the link in
+ * their Gmail, Supabase redirects back and handleSession auto-logs them in. */
+let _pendingConfirm = null;
+function showConfirmWaiting(contact, email, pass) {
+  _pendingConfirm = { email: email, pass: pass };
+  const app = document.getElementById("app");
+  app.innerHTML =
+    '<div class="card" style="text-align:center;padding:28px 18px">' +
+    '<div style="font-size:52px;margin-bottom:10px">📧</div>' +
+    '<h2 style="font-size:18px;margin:0 0 8px">⏳ ' + esc(t("waitingConfirm")) + '</h2>' +
+    '<p style="font-size:13px;color:#666;margin:0 0 6px">' + esc(t("confirmSentTo")) + '</p>' +
+    '<p style="font-size:14px;font-weight:700;margin:0 0 14px">' + esc(contact) + '</p>' +
+    '<p style="font-size:12px;color:#888;margin:0 0 16px">' + esc(t("confirmHint")) + '</p>' +
+    '<button class="btn gray" style="width:100%;margin-bottom:8px" onclick="resendConfirm()">' + esc(t("resendEmail")) + '</button>' +
+    '<button class="btn" style="width:100%" onclick="tryAutoLogin()">' + esc(t("iConfirmedLogin")) + '</button>' +
+    '<div class="center" style="margin-top:12px"><a href="javascript:void(0)" onclick="location.hash=\'#/\';renderAll()" style="color:var(--pink);font-weight:600;font-size:13px">' + esc(t("back")) + '</a></div></div>';
+  window.scrollTo(0, 0);
+}
+async function resendConfirm() {
+  if (!_pendingConfirm) return;
+  try {
+    const { error } = await sb.auth.resend({ type: "signup", email: _pendingConfirm.email });
+    toast(error ? "⚠️ " + error.message : "📧 " + t("confirmResent"));
+  } catch (e) { toast("⚠️ " + e.message); }
+}
+/* After clicking the Gmail link, Supabase may already have a session;
+ * otherwise try password login (works once the email is confirmed). */
+async function tryAutoLogin() {
+  if (!_pendingConfirm) return;
+  try {
+    const { data: s0 } = await sb.auth.getSession();
+    if (s0 && s0.session) { location.hash = "#/"; renderAll(); return; }
+    const { data, error } = await sb.auth.signInWithPassword({ email: _pendingConfirm.email, password: _pendingConfirm.pass });
+    if (error) { toast("⏳ " + t("waitingConfirm")); return; }
+    if (data.session) { location.hash = "#/"; renderAll(); }
+  } catch (e) { toast("⚠️ " + e.message); }
+}
 async function doLogin() {
   const contact = document.getElementById("l-contact").value.trim();
   const pass = document.getElementById("l-pass").value;
@@ -551,10 +588,13 @@ async function doCreateAccount() {
     let user = data.user;
     if (!data.session) {
       // If "Confirm email" is ON in Supabase Auth settings, signUp returns no
-      // session — try an immediate sign-in (works when Confirm email is OFF,
-      // which README-my.md asks the owner to set).
+      // session — try an immediate sign-in (works when Confirm email is OFF).
       const s2 = await sb.auth.signInWithPassword({ email: email, password: pass });
-      if (s2.error) throw new Error(t("checkEmailConfirm"));
+      if (s2.error) {
+        // Email confirmation pending: show waiting screen, auto-login on click.
+        showConfirmWaiting(contact, email, pass);
+        return;
+      }
       user = s2.data.user;
     }
     // upsert: the auth-state handler may already have created a customer row
