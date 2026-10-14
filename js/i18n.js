@@ -176,7 +176,7 @@ const STR = {
   backToShops:        { zh: "← 返回", my: "← ပြန်သွားမည်", en: "← Back" },
   welcomeVendor:      { zh: "欢迎入驻！请先创建你的店铺。", my: "ကြိုဆိုပါတယ်။ အရင်ဆုံး သင့်ဆိုင် ဖွင့်ပါ။", en: "Welcome! Please create your shop first." },
   makeAdminTip:       { zh: "设为管理员：去 Supabase Dashboard → Table Editor → users 表 → 找到该用户 → role 改为 admin", my: "အက်ဒမင်လုပ်ရန်: Supabase Dashboard → Table Editor → users table → ထိုသူကိုရှာ → role ကို admin ဟုပြောင်းပါ", en: "To make an admin: Supabase Dashboard → Table Editor → users table → find the user → change role to admin" },
-  checkEmailConfirm:  { zh: "注册成功，但需要确认邮箱。请去 Supabase → Authentication → Providers → Email，关闭“Confirm email”后再试。", my: "အကောင့်ဖွင့်ပြီးပါပြီ၊ ဒါပေမယ့် email အတည်ပြုဖို့လိုနေပါတယ်။ Supabase → Authentication → Providers → Email မှာ 'Confirm email' ကို ပိတ်ပြီးမှ ပြန်လုပ်ကြည့်ပါ။", en: "Signed up, but email confirmation is required. In Supabase → Authentication → Providers → Email, turn OFF 'Confirm email' and try again." },
+  checkEmailConfirm:  { zh: "注册成功！请查收邮箱，点击确认链接后再登录。", my: "အကောင့်ဖွင့်ပြီးပြီ! Email ထဲက အတည်ပြု link ကို နှိပ်ပြီးမှ ဝင်ပါ။", en: "Signed up! Check your email and click the confirmation link, then sign in." },
   langName:           { zh: "中文", my: "မြန်မာ", en: "English" },
   deliveryAddress:   { zh: "收货地址", my: "ပို့ဆောင်ရမည့်လိပ်စာ", en: "Delivery address" },
   deliveryPhone:     { zh: "收货电话", my: "လက်ခံမည့်ဖုန်းနံပါတ်", en: "Delivery phone" },
