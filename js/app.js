@@ -244,6 +244,7 @@ async function handleSession(session) {
     if (window._drvBc) { try { sb.removeChannel(window._drvBc); } catch (e) {} window._drvBc = null; }
     if (window._goCh) { try { sb.removeChannel(window._goCh); } catch (e) {} window._goCh = null; }
     if (typeof _goCh !== "undefined") _goCh = null;
+    if (typeof _delCh !== "undefined" && _delCh) { try { sb.removeChannel(_delCh); } catch (e) {} _delCh = null; }
     window._totalUnread = 0; window._tuAt = 0; window._chatsLastMsg = {};
   }
   if (currentUser) {
@@ -300,6 +301,7 @@ function renderHeader() {
   renderTapbar();
   ensureGlobalChatWatch();
   ensureGlobalOrderWatch();
+  ensureDeletedWatch();
   document.querySelectorAll("[data-i18n]").forEach(el => {
     el.textContent = t(el.getAttribute("data-i18n"));
   });
@@ -2467,6 +2469,26 @@ async function refreshTotalUnread(force) {
   window._totalUnread = n;
   syncChatTabBadge();
   return n;
+}
+/* Admin deleted my account -> auto logout immediately via realtime. */
+let _delCh = null;
+function ensureDeletedWatch() {
+  const uid = currentUser && currentUser.id;
+  if (!uid || typeof sb === "undefined") return;
+  if (_delCh && _delCh._uid === uid) return;
+  if (_delCh) { try { sb.removeChannel(_delCh); } catch (e) {} _delCh = null; }
+  const ch = sb.channel("deleted-watch-" + uid)
+    .on("postgres_changes",
+      { event: "INSERT", schema: "public", table: "deleted_users", filter: "id=eq." + uid },
+      async () => {
+        try { await sb.auth.signOut(); } catch (e) {}
+        currentUser = null; userDoc = null;
+        toast(t("accountDeleted") || "Account deleted");
+        location.hash = "#/";
+      })
+    .subscribe();
+  ch._uid = uid;
+  _delCh = ch;
 }
 /* One silent global watcher: any new/changed order refreshes the orders
  * tab badge wherever I am in the app (vendor also gets a ping on new orders). */
