@@ -83,6 +83,14 @@ function mapPost(r) {
 }
 
 /* ---------- helpers ---------- */
+/* Normalize a phone number for uniqueness: digits only, 09... -> 959... */
+function normPhone(p) {
+  if (!p) return "";
+  let d = String(p).replace(/\D/g, "");
+  if (!d) return "";
+  if (d.length >= 10 && d.startsWith("09")) d = "95" + d.slice(1);
+  return d;
+}
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -526,6 +534,18 @@ async function doCreateAccount() {
       email = "phone_" + digits + "@phone.mongla.local";
       phone = contact;
     }
+    // one phone = one account: normalize + check duplicate
+    const phoneNorm = normPhone(phone || (contact.indexOf("@") < 0 ? contact : ""));
+    if (phoneNorm) {
+      try {
+        const { data: exists } = await sb.rpc("phone_exists", { p_phone: phoneNorm });
+        if (exists) throw new Error(t("phoneUsed"));
+      } catch (e) {
+        if (e.message === t("phoneUsed")) throw e;
+        // rpc failed (e.g. migration not run) -> fall through, DB constraint backs us up
+      }
+      phone = phoneNorm;
+    }
     const { data, error } = await sb.auth.signUp({ email: email, password: pass });
     if (error) throw error;
     let user = data.user;
@@ -544,7 +564,11 @@ async function doCreateAccount() {
       last_name: "",
       email: contact, phone: phone
     }, { onConflict: "id" });
-    if (upErr) throw upErr;
+    if (upErr) {
+      if (upErr.code === "23505" || (upErr.message || "").indexOf("users_phone_unique") >= 0)
+        throw new Error(t("phoneUsed"));
+      throw upErr;
+    }
     if (isVendor) {
       // Create the vendor's shop right away so the dashboard is ready.
       // (shopName() falls back to name_zh for all languages.)
