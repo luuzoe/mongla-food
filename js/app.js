@@ -2962,10 +2962,10 @@ async function adminDeleteUser(uid) {
   if (uid === currentUser.id) { toast("\u26A0\uFE0F"); return; }
   if (!(await confirmDlg("\uD83D\uDDD1\uFE0F " + t("del") + "?"))) return;
   try {
-    // delete their shops first (cascades menu_items + posts)
+    // delete their shops first (orders must go before shop: NOT NULL FK)
     const { data: shops } = await sb.from("shops").select("id").eq("owner_id", uid);
     for (const s of (shops || [])) {
-      await sb.from("shops").delete().eq("id", s.id);
+      await deleteShopFull(s.id);
     }
     // block re-login, then delete public user row (orders/conversations cascade)
     await sb.from("deleted_users").insert({ id: uid });
@@ -2985,12 +2985,16 @@ async function adminResolveReport(id) {
   const { error } = await sb.from("reports").delete().eq("id", id);
   if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
 }
+/* Delete a shop + its orders (orders.shop_id is NOT NULL so must go first). */
+async function deleteShopFull(sid) {
+  await sb.from("orders").delete().eq("shop_id", sid);
+  const { error } = await sb.from("shops").delete().eq("id", sid);
+  if (error) throw error;
+}
 async function adminDelShop(id) {
   if (!(await confirmDlg(t("confirmDelete")))) return;
   try {
-    // menu_items cascade-deletes via FK
-    const { error } = await sb.from("shops").delete().eq("id", id);
-    if (error) throw error;
+    await deleteShopFull(id);
     viewAdmin();
   } catch (e) { toast("⚠️ " + e.message); }
 }
@@ -3025,8 +3029,7 @@ async function deleteSamples() {
     const { data, error } = await sb.from("shops").select("id").eq("sample", true);
     if (error) throw error;
     for (const s of (data || [])) {
-      const { error: dErr } = await sb.from("shops").delete().eq("id", s.id);
-      if (dErr) throw dErr;
+      await deleteShopFull(s.id);
     }
     viewAdmin();
   } catch (e) { toast("⚠️ " + e.message); }
