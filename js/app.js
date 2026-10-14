@@ -248,6 +248,17 @@ async function handleSession(session) {
   }
   if (currentUser) {
     try {
+      // blocked: admin-deleted accounts can't log back in
+      try {
+        const { data: del } = await sb.from("deleted_users").select("id").eq("id", currentUser.id).single();
+        if (del) {
+          try { await sb.auth.signOut(); } catch (e) {}
+          currentUser = null; userDoc = null;
+          toast(t("accountDeleted") || "Account deleted");
+          location.hash = "#/";
+          return;
+        }
+      } catch (e) {}
       const { data, error } = await sb.from("users").select("*").eq("id", currentUser.id).single();
       if (!error && data) {
         userDoc = mapUser(data);
@@ -2839,6 +2850,7 @@ async function viewAdmin() {
     '<div class="tab' + (adminTab === "orders" ? " active" : "") + '" onclick="setAdminTab(\'orders\')"><span class="tic">' + ICONS.box + "</span> " + esc(t("allOrders")) + "</div>" +
     '<div class="tab' + (adminTab === "reports" ? " active" : "") + '" onclick="setAdminTab(\'reports\')"><span class="tic">' + ICONS.flag + "</span> " + esc(t("reports")) + "</div>" +
     '<div class="tab' + (adminTab === "drivers" ? " active" : "") + '" onclick="setAdminTab(\'drivers\')">🛵 ' + esc(t("pendingDrivers")) + "</div>" +
+    '<div class="tab' + (adminTab === "posts" ? " active" : "") + '" onclick="setAdminTab(\'posts\')">📢 ' + esc(t("posts") || "Posts") + "</div>" +
     "</div><div id=\"atab\"></div>";
   const box = document.getElementById("atab");
   if (adminTab === "shops") {
@@ -2865,7 +2877,8 @@ async function viewAdmin() {
       "</th><th>" + esc(t("email")) + "</th><th>role</th><th></th></tr>" +
       list.map(u => "<tr><td>" + esc(u.name || "") + "</td><td>" + esc(u.email || "") + "</td><td>" + esc(u.role || "") +
         (u.banned ? ' <span class="badge" style="background:#f8d7da;color:#721c24">' + esc(t("banned")) + "</span>" : "") + "</td>" +
-        '<td><button class="btn small ' + (u.banned ? "" : "gray") + '" onclick="adminBanUser(\'' + u.id + "'," + (!u.banned) + ')">' + esc(t(u.banned ? "unban" : "ban")) + "</button></td></tr>").join("") +
+        '<td><button class="btn small ' + (u.banned ? "" : "gray") + '" onclick="adminBanUser(\'' + u.id + "'," + (!u.banned) + ')">' + esc(t(u.banned ? "unban" : "ban")) + "</button> " +
+        '<button class="btn small" style="background:#dc3545;color:#fff" onclick="adminDeleteUser(\'' + u.id + "')\">🗑️</button></td></tr>").join("") +
       "</table></div>";
   } else if (adminTab === "reports") {
     const { data, error } = await sb.from("reports").select("*").order("created_at", { ascending: false }).limit(100);
@@ -2902,6 +2915,23 @@ async function viewAdmin() {
       : '<div class="card center muted">' + esc(t("noOrders")) + "</div>";
     box.querySelectorAll("[data-addrv]").forEach(b => b.onclick = () => adminApproveDriver(b.getAttribute("data-addrv"), true));
     box.querySelectorAll("[data-rejdrv]").forEach(b => b.onclick = () => adminApproveDriver(b.getAttribute("data-rejdrv"), false));
+  } else if (adminTab === "posts") {
+    const { data, error } = await sb.from("posts").select("id,body,shop_id,created_at").order("created_at", { ascending: false }).limit(100);
+    if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
+    const list = data || [];
+    const sids = [...new Set(list.map(p => p.shop_id).filter(Boolean))];
+    const shopNames = {};
+    if (sids.length) {
+      const { data: ss } = await sb.from("shops").select("id,name_my,name_zh").in("id", sids);
+      (ss || []).forEach(s => { shopNames[s.id] = s.name_my || s.name_zh || ""; });
+    }
+    box.innerHTML = list.length ? list.map(p =>
+      '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+      '<div><div>' + esc((p.body || "").slice(0, 80)) + '</div>' +
+      '<div class="muted" style="font-size:12px">' + esc(shopNames[p.shop_id] || "") + '</div></div>' +
+      '<button class="btn small" style="background:#dc3545;color:#fff" data-delpost="' + p.id + '">🗑️</button></div>').join("")
+      : '<div class="card center muted">' + esc(t("noOrders")) + "</div>";
+    box.querySelectorAll("[data-delpost]").forEach(b => b.onclick = () => adminDeletePost(b.getAttribute("data-delpost")));
   } else {
     const { data, error } = await sb.from("orders").select("*").order("created_at", { ascending: false });
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
@@ -2924,6 +2954,31 @@ async function adminApproveShop(id) {
 async function adminBanUser(uid, ban) {
   if (ban && !(await confirmDlg(t("ban") + "?"))) return;
   const { error } = await sb.from("users").update({ banned: !!ban }).eq("id", uid);
+  if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
+}
+/* Admin: fully delete a user (test accounts). Deletes their shops (cascades
+ * menu/posts), orders cascade, then blocks re-login via deleted_users. */
+async function adminDeleteUser(uid) {
+  if (uid === currentUser.id) { toast("\u26A0\uFE0F"); return; }
+  if (!(await confirmDlg("\uD83D\uDDD1\uFE0F " + t("del") + "?"))) return;
+  try {
+    // delete their shops first (cascades menu_items + posts)
+    const { data: shops } = await sb.from("shops").select("id").eq("owner_id", uid);
+    for (const s of (shops || [])) {
+      await sb.from("shops").delete().eq("id", s.id);
+    }
+    // block re-login, then delete public user row (orders/conversations cascade)
+    await sb.from("deleted_users").insert({ id: uid });
+    const { error } = await sb.from("users").delete().eq("id", uid);
+    if (error) throw error;
+    prettyToast("\u2705", t("done"), "green");
+    viewAdmin();
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+}
+/* Admin: delete a post directly. */
+async function adminDeletePost(pid) {
+  if (!(await confirmDlg("\uD83D\uDDD1\uFE0F " + t("del") + "?"))) return;
+  const { error } = await sb.from("posts").delete().eq("id", pid);
   if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
 }
 async function adminResolveReport(id) {

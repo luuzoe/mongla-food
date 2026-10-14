@@ -228,6 +228,7 @@ const STR = {
   unban:             { zh: "解封", my: "အကောင့်ပြန်ဖွင့်ရန်", en: "Unban" },
   banned:            { zh: "已封号", my: "အကောင့်ပိတ်ခံထားရသည်", en: "Banned" },
   accountBanned:     { zh: "您的账号已被封禁，请联系客服", my: "သင့်အကောင့် ပိတ်ခံထားရပါတယ် — ဆက်သွယ်ရန်", en: "Your account has been banned — please contact support" },
+  accountDeleted:    { zh: "账号已被删除", my: "အကောင့် ဖျက်ခံထားရပါတယ်", en: "Account has been deleted" },
   confirmReceived:   { zh: "确认收货", my: "ပစ္စည်းရရှိကြောင်း အတည်ပြုရန်", en: "Confirm received" },
   newCustomerWarn:   { zh: "⚠️ 新顾客，建议电话确认后再备餐", my: "⚠️ ဝယ်သူအသစ် — ချက်ပြုတ်ခင် ဖုန်းနဲ့ အတည်ပြုပါ", en: "⚠️ New customer — confirm by phone before preparing" },
   noPosts:           { zh: "暂无动态", my: "ပို့စ်မရှိသေးပါ", en: "No posts yet" }
