@@ -779,7 +779,7 @@ async function viewHome() {
     esc(catName(c.id)) + "</div>").join("");
   chips.querySelectorAll(".chip").forEach(ch =>
     ch.onclick = () => { homeFilter.cat = ch.getAttribute("data-cat"); viewHome(); });
-  document.getElementById("q").oninput = (e) => { homeFilter.q = e.target.value; drawDishGrid(); };
+  document.getElementById("q").oninput = (e) => { homeFilter.q = e.target.value; renderFeedPosts(); };
   try {
     // one query: shops + their menus (public read, no login needed)
     const { data: shops, error } = await sb.from("shops").select("*, menu_items(*)").eq("approved", true);
@@ -939,7 +939,15 @@ function renderFeedPosts() {
   const box = document.getElementById("feedSection");
   if (!box) return;
   const cat = (typeof homeFilter !== "undefined" && homeFilter.cat) || "all";
-  const list = (window._feedPosts || []).filter(p => cat === "all" || (p.category || "foods") === cat);
+  const q = (typeof homeFilter !== "undefined" && homeFilter.q || "").toLowerCase().trim();
+  const list = (window._feedPosts || []).filter(p => {
+    if (cat !== "all" && (p.category || "foods") !== cat) return false;
+    if (q) {
+      const hay = ((p.body || "") + " " + (p.shopName || "")).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
   const favs = getFavs();
   list.sort((a, b) => ((favs.indexOf(b.shopId + "__post_" + b.id) >= 0) ? 1 : 0) - ((favs.indexOf(a.shopId + "__post_" + a.id) >= 0) ? 1 : 0));
   if (!list.length) { box.innerHTML = ""; return; }
