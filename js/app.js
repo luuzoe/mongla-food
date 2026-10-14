@@ -772,7 +772,6 @@ async function viewHome() {
     '<div class="toolbar"><input type="search" id="q" placeholder="' + esc(t("searchDishes")) +
       '" value="' + esc(homeFilter.q) + '"></div>' +
     '<div class="chips" id="chips"></div>' +
-    '<h3 style="margin:4px 0 8px">🍽 ' + esc(t("unifiedMenu")) + '</h3><div class="dish-grid" id="dishGrid"></div>' +
     '<div id="feedSection"></div>';
   const chips = document.getElementById("chips");
   chips.innerHTML = CATEGORIES.map(c =>
