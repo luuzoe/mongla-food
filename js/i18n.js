@@ -179,7 +179,7 @@ const STR = {
   checkEmailConfirm:  { zh: "请前往您的 Gmail 查收确认邮件。", my: "သင့်၏ Gmail ထဲသို့ သွားရောက် အတည်ပြုပါ။", en: "Please go to your Gmail and confirm." },
   waitingConfirm:    { zh: "等待邮箱确认", my: "အတည်ပြုချက် စောင့်နေပါသည်", en: "Waiting for confirmation" },
   confirmSentTo:     { zh: "确认链接已发送至", my: "အတည်ပြု link ပို့ထားပါတယ်", en: "Confirmation link sent to" },
-  confirmHint:       { zh: "点击邮件中的链接后，再点下方按钮登录", my: "Gmail ထဲက link ကို နှိပ်ပြီးမှ အောက်က ခလုတ်နှိပ်ပါ", en: "Click the link in your email, then tap the button below" },
+  confirmHint:       { zh: "点击邮件中的链接后将自动登录", my: "Gmail ထဲက link ကို နှိပ်တာနဲ့ auto ဝင်ပြီးသား ဖြစ်မယ်", en: "Click the link in your email and you'll be signed in automatically" },
   resendEmail:       { zh: "重发确认邮件", my: "Email ပြန်ပို့", en: "Resend email" },
   iConfirmedLogin:   { zh: "我已确认，登录", my: "အတည်ပြုပြီးပြီ၊ ဝင်မယ်", en: "I've confirmed, sign in" },
   confirmResent:     { zh: "已重发", my: "ပြန်ပို့ပြီးပြီ", en: "Resent" },

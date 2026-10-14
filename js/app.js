@@ -245,6 +245,12 @@ function boot() {
 async function handleSession(session) {
   currentUser = (session && session.user) ? session.user : null;
   userDoc = null;
+  // Clean auth tokens from URL after email-confirm redirect (auto-login).
+  try {
+    if (currentUser && /access_token=/.test(location.hash)) {
+      history.replaceState(null, "", location.pathname + location.search + "#/");
+    }
+  } catch (e) {}
   if (!currentUser) {
     if (typeof _gcCh !== "undefined" && _gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} }
     if (typeof _gcCh !== "undefined") _gcCh = null;
@@ -497,7 +503,6 @@ function showConfirmWaiting(contact, email, pass) {
     '<p style="font-size:14px;font-weight:700;margin:0 0 14px">' + esc(contact) + '</p>' +
     '<p style="font-size:12px;color:#888;margin:0 0 16px">' + esc(t("confirmHint")) + '</p>' +
     '<button class="btn gray" style="width:100%;margin-bottom:8px" onclick="resendConfirm()">' + esc(t("resendEmail")) + '</button>' +
-    '<button class="btn" style="width:100%" onclick="tryAutoLogin()">' + esc(t("iConfirmedLogin")) + '</button>' +
     '<div class="center" style="margin-top:12px"><a href="javascript:void(0)" onclick="location.hash=\'#/\';renderAll()" style="color:var(--pink);font-weight:600;font-size:13px">' + esc(t("back")) + '</a></div></div>';
   window.scrollTo(0, 0);
 }
@@ -508,18 +513,8 @@ async function resendConfirm() {
     toast(error ? "⚠️ " + error.message : "📧 " + t("confirmResent"));
   } catch (e) { toast("⚠️ " + e.message); }
 }
-/* After clicking the Gmail link, Supabase may already have a session;
- * otherwise try password login (works once the email is confirmed). */
-async function tryAutoLogin() {
-  if (!_pendingConfirm) return;
-  try {
-    const { data: s0 } = await sb.auth.getSession();
-    if (s0 && s0.session) { location.hash = "#/"; renderAll(); return; }
-    const { data, error } = await sb.auth.signInWithPassword({ email: _pendingConfirm.email, password: _pendingConfirm.pass });
-    if (error) { toast("⏳ " + t("waitingConfirm")); return; }
-    if (data.session) { location.hash = "#/"; renderAll(); }
-  } catch (e) { toast("⚠️ " + e.message); }
-}
+/* After clicking the Gmail link, Supabase redirects back with tokens in the URL;
+ * the client picks up the session automatically -> user is logged in. */
 async function doLogin() {
   const contact = document.getElementById("l-contact").value.trim();
   const pass = document.getElementById("l-pass").value;
