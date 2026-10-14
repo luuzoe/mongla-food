@@ -183,6 +183,7 @@ const STR = {
   resendEmail:       { zh: "重发确认邮件", my: "Email ပြန်ပို့", en: "Resend email" },
   iConfirmedLogin:   { zh: "我已确认，登录", my: "အတည်ပြုပြီးပြီ၊ ဝင်မယ်", en: "I've confirmed, sign in" },
   confirmResent:     { zh: "已重发", my: "ပြန်ပို့ပြီးပြီ", en: "Resent" },
+  back:              { zh: "返回", my: "နောက်သို့", en: "Back" },
   langName:           { zh: "中文", my: "မြန်မာ", en: "English" },
   deliveryAddress:   { zh: "收货地址", my: "ပို့ဆောင်ရမည့်လိပ်စာ", en: "Delivery address" },
   deliveryPhone:     { zh: "收货电话", my: "လက်ခံမည့်ဖုန်းနံပါတ်", en: "Delivery phone" },
