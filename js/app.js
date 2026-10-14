@@ -256,7 +256,8 @@ async function handleSession(session) {
           try { await sb.auth.signOut(); } catch (e) {}
           currentUser = null; userDoc = null;
           toast(t("accountDeleted") || "Account deleted");
-          location.hash = "#/";
+          if (location.hash !== "#/") location.hash = "#/";
+          try { renderAll(); } catch (e) {}
           return;
         }
       } catch (e) {}
@@ -2484,7 +2485,8 @@ function ensureDeletedWatch() {
         try { await sb.auth.signOut(); } catch (e) {}
         currentUser = null; userDoc = null;
         toast(t("accountDeleted") || "Account deleted");
-        location.hash = "#/";
+        if (location.hash !== "#/") location.hash = "#/";
+        try { renderAll(); } catch (e) {}
       })
     .subscribe();
   ch._uid = uid;
