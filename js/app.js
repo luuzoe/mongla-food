@@ -77,6 +77,7 @@ function mapPost(r) {
   return {
     id: r.id, shopId: r.shop_id, vendorUid: r.vendor_id,
     body: r.body || "", price: Number(r.price_yuan) || 0,
+    quantity: (r.quantity === null || r.quantity === undefined) ? null : Number(r.quantity),
     photoUrl: r.photo_url || "", createdAt: r.created_at,
     category: r.category || "foods"
   };
@@ -791,6 +792,7 @@ function regPost(shopId, shop, post) {
     key: key, shopId: shopId, itemId: "post_" + post.id,
     name_zh: post.body, name_my: post.body, name_en: post.body,
     price: Number(post.price) || 0,
+    quantity: (post.quantity === null || post.quantity === undefined) ? null : Number(post.quantity),
     photoUrl: post.photoUrl || "", category: "all", emoji: "📢",
     shop_zh: (shop && shop.name_zh) || "",
     shop_my: (shop && (shop.name_my || shop.name_zh)) || "",
@@ -846,7 +848,13 @@ function drawDishGrid() {
  * Post cards are compact like dish cards and orderable: tapping the order
  * button adds the post to the cart as a pseudo-dish. */
 function postFootHTML(key, p, inCart) {
-  return '<span class="dish-price">' + money(p.price) + "</span>" +
+  const qty = p.quantity;
+  const soldOut = qty !== null && qty !== undefined && qty <= 0;
+  const stockLbl = (qty === null || qty === undefined) ? ""
+    : '<span class="muted" style="font-size:11px;margin-right:6px">📦 ' + esc(t("remaining")) + ': ' + qty + '</span>';
+  if (soldOut) return '<span class="dish-price">' + money(p.price) + "</span>" +
+    '<span style="font-size:12px;color:#e91e63;font-weight:700">' + esc(t("soldOut")) + '</span>';
+  return '<span class="dish-price">' + money(p.price) + "</span>" + stockLbl +
     (inCart > 0
       ? '<div class="qty-ctrl"><button onclick="event.stopPropagation();postOrder(\'' + key + "',-1)\">−</button><b>" + inCart + "</b>" +
         '<button onclick="event.stopPropagation();postOrder(\'' + key + "',1)\">＋</button></div>"
@@ -949,6 +957,11 @@ function postOrder(key, delta) {
   const y = window.scrollY;
   const cur = cart.items[key];
   const qty = (cur ? cur.qty : 0) + delta;
+  // stock limit
+  if (delta > 0 && d.quantity !== null && d.quantity !== undefined && qty > d.quantity) {
+    toast("⚠️ " + t("onlyXLeft").replace("{n}", d.quantity));
+    return;
+  }
   if (qty <= 0) delete cart.items[key];
   else cart.items[key] = {
     shopId: d.shopId, itemId: d.itemId, qty: qty,
@@ -1278,6 +1291,33 @@ async function checkoutAll() {
       }
     } catch (e) {}
   }
+  // re-validate post quantities (vendor may have set stock)
+  const postItemIds = [...new Set(Object.values(cart.items).map(it => it.itemId).filter(id => id && String(id).startsWith("post_")).map(id => String(id).slice(5)))];
+  if (postItemIds.length) {
+    try {
+      const { data } = await sb.from("posts").select("id,quantity").in("id", postItemIds);
+      const qtyMap = {};
+      (data || []).forEach(p => { qtyMap[p.id] = p.quantity; });
+      const overSold = Object.entries(cart.items).filter(([k, it]) => {
+        const pid = it.itemId && String(it.itemId).startsWith("post_") ? String(it.itemId).slice(5) : null;
+        const q = pid ? qtyMap[pid] : null;
+        return pid && q !== null && q !== undefined && it.qty > q;
+      });
+      if (overSold.length) {
+        overSold.forEach(([k, it]) => {
+          const pid = String(it.itemId).slice(5);
+          const q = qtyMap[pid];
+          if (q <= 0) delete cart.items[k];
+          else cart.items[k].qty = q;
+        });
+        try { if (typeof drawCart === "function") drawCart(); } catch (err) {}
+        try { if (typeof renderCartBar === "function") renderCartBar(); } catch (err) {}
+        toast("⚠️ " + t("stockUpdated"));
+        window._checkingOut = false;
+        return;
+      }
+    } catch (e) {}
+  }
   if (!(await confirmDlg(t("confirmOrder") + " · " + money(cartGrandTotal())))) { window._checkingOut = false; return; }
   const succeeded = [];
   try {
@@ -1288,6 +1328,18 @@ async function checkoutAll() {
       }));
       await placeShopOrder(sid, items, { address: addr, phone: phone, note: note, payMethod: payMethod, payTxn: payTxn });
       succeeded.push(sid);
+      // decrement post stock
+      for (const it of groups[sid]) {
+        if (it.itemId && String(it.itemId).startsWith("post_")) {
+          const pid = String(it.itemId).slice(5);
+          try {
+            const { data: pr } = await sb.from("posts").select("quantity").eq("id", pid).single();
+            if (pr && pr.quantity !== null && pr.quantity !== undefined) {
+              await sb.from("posts").update({ quantity: Math.max(0, pr.quantity - it.qty) }).eq("id", pid);
+            }
+          } catch (e) {}
+        }
+      }
     }
     cart = { items: {} };
     cartFees = {};
@@ -2436,6 +2488,7 @@ async function drawVendorPosts() {
         '<div class="field"><label>' + esc(t("postPhoto")) + '</label><input id="p-photo" type="file" accept="image/*"></div>' +
         '<div class="field"><textarea id="p-body" rows="3" placeholder="' + esc(t("postPlaceholder")) + '"></textarea></div>' +
         '<div class="field"><label>' + esc(t("priceYuan")) + '</label><input id="p-price" type="number" min="0" step="1"></div>' +
+        '<div class="field"><label>' + esc(t("postQty")) + '</label><input id="p-qty" type="number" min="0" step="1" placeholder="' + esc(t("postQtyHint")) + '"></div>' +
         '<button class="btn" style="width:100%" onclick="publishPost()">' + esc(t("publish")) + "</button>" +
         '<div id="p-err" class="muted" style="margin-top:6px"></div></div>'
       : "") +
@@ -2447,7 +2500,9 @@ async function publishPost() {
   const showErr = (m) => { if (errBox) errBox.textContent = "⚠️ " + m; };
   const body = (document.getElementById("p-body").value || "").trim();
   const priceRaw = (document.getElementById("p-price").value || "").trim();
+  const qtyRaw = ((document.getElementById("p-qty") || {}).value || "").trim();
   if (!body || priceRaw === "" || !(Number(priceRaw) >= 0)) { showErr(t("fillPostText")); return; }
+  const qty = qtyRaw === "" ? null : Math.max(0, Math.floor(Number(qtyRaw) || 0));
   const fileInput = document.getElementById("p-photo");
   const file = fileInput && fileInput.files && fileInput.files[0];
   let photoUrl = null;
@@ -2465,6 +2520,7 @@ async function publishPost() {
     const { error } = await sb.from("posts").insert({
       shop_id: myShop.id, vendor_id: currentUser.id,
       body: body, price_yuan: Number(priceRaw), photo_url: photoUrl,
+      quantity: qty,
       category: (document.getElementById("p-cat") || {}).value || "foods"
     });
     if (error) throw error;
