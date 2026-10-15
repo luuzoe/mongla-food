@@ -154,8 +154,9 @@ function getPref(k, dflt) {
 }
 /* GPS: fill an address field from the device location (free browser API +
  * OpenStreetMap reverse-geocode, no key needed).
- * Retries until accuracy <= 3m (or 5 attempts), keeps the best reading. */
-async function useMyLocation(fieldId) {
+ * Retries until accuracy <= 3m (or 5 attempts), keeps the best reading.
+ * showCoords=false: clean address only (e.g. vendor profile). */
+async function useMyLocation(fieldId, showCoords) {
   const el = document.getElementById(fieldId);
   if (!el) return;
   if (!navigator.geolocation) { toast("⚠️ " + t("gpsNotSupported")); return; }
@@ -184,7 +185,7 @@ async function useMyLocation(fieldId) {
   }
   const lat = best.coords.latitude, lng = best.coords.longitude;
   const acc = Math.round(best.coords.accuracy);
-  const coordSuffix = " (GPS " + lat.toFixed(5) + ", " + lng.toFixed(5) + " ±" + acc + "m)";
+  const coordSuffix = showCoords === false ? "" : " (GPS " + lat.toFixed(5) + ", " + lng.toFixed(5) + " ±" + acc + "m)";
   try {
     const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=my");
     const j = await r.json();
@@ -193,6 +194,7 @@ async function useMyLocation(fieldId) {
       return;
     }
   } catch (e) {}
+  if (showCoords === false) { toast("⚠️ " + t("gpsFailed")); return; }
   el.value = "GPS: " + lat.toFixed(5) + ", " + lng.toFixed(5) + " ±" + acc + "m";
 }
 function setPref(k, v) {
@@ -2115,7 +2117,7 @@ function shopForm(s) {
     '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="s-zh" value="' + v("name_zh") + '"></div>' +
     '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="s-owner" value="' + v("ownerName") + '"></div>' +
     '<div class="field"><label>' + esc(t("address")) + '</label><div style="display:flex;gap:6px"><input id="s-azh" style="flex:1" value="' + v("address_zh") + '">' +
-    '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'s-azh\')">📍 ' + esc(t("useMyLocation")) + "</button></div></div>" +
+    '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'s-azh\', false)">📍 ' + esc(t("useMyLocation")) + "</button></div></div>" +
     '<div class="field"><label>' + esc(t("phone")) + '</label><input id="s-phone" value="' + v("phone") + '"></div>' +
     '<div class="field"><label>' + esc(t("wechatId")) + '</label><input id="s-wechat" value="' + v("wechatId") + '"></div>' +
     '<div class="field"><label>' + esc(t("deliveryFeeYuan")) + '</label><input id="s-fee" type="number" min="0" step="1" value="' + esc(s.deliveryFee != null ? s.deliveryFee : 0) + '"></div>' +
