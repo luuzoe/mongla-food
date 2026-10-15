@@ -2819,6 +2819,18 @@ function ensureDriverOrderWatch() {
 }
 /* Orders tab badge: vendor = pending orders needing action;
  * customer = my orders whose status changed since I last opened Orders. */
+/* Admin: pending approval count (unapproved shops + unapproved drivers) for tap bar badge. */
+async function refreshPendingBadge() {
+  if (!currentUser || !userDoc || userDoc.role !== "admin") { window._pendingApprovalCount = 0; return 0; }
+  try {
+    const [shops, drivers] = await Promise.all([
+      sb.from("shops").select("id", { count: "exact", head: true }).eq("approved", false),
+      sb.from("users").select("id", { count: "exact", head: true }).eq("role", "driver").eq("driver_approved", false)
+    ]);
+    window._pendingApprovalCount = (shops.count || 0) + (drivers.count || 0);
+  } catch (e) { window._pendingApprovalCount = 0; }
+  return window._pendingApprovalCount;
+}
 async function refreshOrderBadge(force) {
   if (!currentUser) { window._newOrderCount = 0; syncOrderTabBadge(); return 0; }
   const now = Date.now();
@@ -2859,6 +2871,16 @@ function syncOrderTabBadge() {
       b.textContent = n > 99 ? "99+" : n;
     } else if (b) b.remove();
   }
+}
+function syncPendingBadge() {
+  const n = window._pendingApprovalCount || 0;
+  const btn = document.querySelector('#tapbar [data-h="#/admin"]');
+  if (!btn) return;
+  let b = btn.querySelector(".cbadge");
+  if (n > 0) {
+    if (!b) { b = document.createElement("span"); b.className = "cbadge"; btn.appendChild(b); }
+    b.textContent = n > 99 ? "99+" : n;
+  } else if (b) b.remove();
 }
 function snapshotOrderSeen(list) {
   try {
@@ -2943,7 +2965,7 @@ function renderTapbar() {
       { ic: ICONS.store, label: t("vendorCenter"), hash: "#/vendor", active: h === "#/vendor" }
     ];
     if (role === "admin")
-      tabs.push({ ic: ICONS.wrench, label: t("adminPanel"), hash: "#/admin", active: h === "#/admin" });
+      tabs.push({ ic: ICONS.wrench, label: t("adminPanel"), hash: "#/admin", active: h === "#/admin", badge: window._pendingApprovalCount || 0 });
   } else {
     tabs = [
       { ic: ICONS.home, label: t("home"), hash: "#/", active: h === "#/" || !h.startsWith("#/") },
@@ -2954,6 +2976,7 @@ function renderTapbar() {
   }
   refreshTotalUnread(false);
   refreshOrderBadge(false);
+  if (role === "admin") refreshPendingBadge().then(() => syncPendingBadge());
   // Avoid rebuilding the bar when nothing changed (prevents visible flicker).
   const sig = tabs.map(tb => tb.hash + "|" + tb.label + "|" + (tb.active ? 1 : 0) + "|" + (tb.badge || 0)).join(";");
   if (bar.dataset.sig === sig) { syncChatTabBadge(); syncOrderTabBadge(); return; }
@@ -2966,6 +2989,7 @@ function renderTapbar() {
     b.onclick = () => { location.hash = b.getAttribute("data-h"); });
   syncChatTabBadge();
   syncOrderTabBadge();
+  syncPendingBadge();
 }
 
 /* ---------- driver ---------- */
@@ -3205,12 +3229,12 @@ async function viewAdmin() {
 }
 async function adminApproveDriver(uid, approve) {
   const { error } = await sb.from("users").update({ driver_approved: !!approve }).eq("id", uid);
-  if (error) toast("⚠️ " + error.message); else viewAdmin();
+  if (error) toast("⚠️ " + error.message); else { refreshPendingBadge().then(() => syncPendingBadge()); viewAdmin(); }
 }
 function setAdminTab(tab) { adminTab = tab; viewAdmin(); }
 async function adminApproveShop(id) {
   const { error } = await sb.from("shops").update({ approved: true }).eq("id", id);
-  if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
+  if (error) toast("\u26A0\uFE0F " + error.message); else { refreshPendingBadge().then(() => syncPendingBadge()); viewAdmin(); }
 }
 async function adminBanUser(uid, ban) {
   if (ban && !(await confirmDlg(t("ban") + "?"))) return;
