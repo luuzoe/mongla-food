@@ -182,6 +182,7 @@ const STR = {
   welcomeVendor:      { zh: "欢迎入驻！请先创建你的店铺。", my: "ကြိုဆိုပါတယ်။ အရင်ဆုံး သင့်ဆိုင် ဖွင့်ပါ။", en: "Welcome! Please create your shop first." },
   makeAdminTip:       { zh: "设为管理员：去 Supabase Dashboard → Table Editor → users 表 → 找到该用户 → role 改为 admin", my: "အက်ဒမင်လုပ်ရန်: Supabase Dashboard → Table Editor → users table → ထိုသူကိုရှာ → role ကို admin ဟုပြောင်းပါ", en: "To make an admin: Supabase Dashboard → Table Editor → users table → find the user → change role to admin" },
   waitingConfirm:    { zh: "等待邮箱确认", my: "အတည်ပြုချက် စောင့်နေပါသည်", en: "Waiting for confirmation" },
+  confirmSuccess:    { zh: "验证成功", my: "အတည်ပြုခြင်း အောင်မြင်သည်", en: "Confirmation successful" },
   confirmSentTo:     { zh: "确认链接已发送至", my: "အတည်ပြု link ပို့ထားပါတယ်", en: "Confirmation link sent to" },
   confirmHint:       { zh: "点击邮件中的链接后将自动登录", my: "Gmail ထဲက link ကို နှိပ်တာနဲ့ auto ဝင်ပြီးသား ဖြစ်မယ်", en: "Click the link in your email and you'll be signed in automatically" },
   resendEmail:       { zh: "重发确认邮件", my: "Email ပြန်ပို့", en: "Resend email" },

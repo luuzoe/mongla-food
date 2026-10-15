@@ -291,6 +291,7 @@ function boot() {
 async function handleSession(session) {
   currentUser = (session && session.user) ? session.user : null;
   userDoc = null;
+  if (currentUser) stopConfirmPoll();
   // Clean auth tokens from URL after email-confirm redirect (auto-login).
   try {
     if (currentUser && /access_token=/.test(location.hash)) {
@@ -566,8 +567,26 @@ function setAuthMode(m) { authMode = m; viewProfile(); }
 /* Waiting-for-email-confirmation screen. After the user clicks the link in
  * their Gmail, Supabase redirects back and handleSession auto-logs them in. */
 let _pendingConfirm = null;
+let _confirmPoll = null;
+function stopConfirmPoll() { if (_confirmPoll) { clearInterval(_confirmPoll); _confirmPoll = null; } }
+async function pollConfirm() {
+  if (!_pendingConfirm || !_pendingConfirm.email || !_pendingConfirm.pass) return;
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email: _pendingConfirm.email, password: _pendingConfirm.pass });
+    if (!error && data && data.session) {
+      stopConfirmPoll();
+      _pendingConfirm = null;
+      toast("✅ " + t("confirmSuccess"));
+      await handleSession(data.session);
+      try { renderAll(); } catch (e) {}
+    }
+    // Still unconfirmed -> keep waiting silently.
+  } catch (e) {}
+}
 function showConfirmWaiting(contact, email, pass) {
   _pendingConfirm = { email: email, pass: pass };
+  stopConfirmPoll();
+  _confirmPoll = setInterval(pollConfirm, 10000);
   const app = document.getElementById("app");
   app.innerHTML =
     '<div class="card" style="text-align:center;padding:28px 18px">' +
@@ -577,7 +596,7 @@ function showConfirmWaiting(contact, email, pass) {
     '<p style="font-size:14px;font-weight:700;margin:0 0 14px">' + esc(contact) + '</p>' +
     '<p style="font-size:12px;color:#888;margin:0 0 16px">' + esc(t("confirmHint")) + '</p>' +
     '<button class="btn gray" style="width:100%;margin-bottom:8px" onclick="resendConfirm()">' + esc(t("resendEmail")) + '</button>' +
-    '<div class="center" style="margin-top:12px"><a href="javascript:void(0)" onclick="location.hash=\'#/\';renderAll()" style="color:var(--pink);font-weight:600;font-size:13px">' + esc(t("back")) + '</a></div></div>';
+    '<div class="center" style="margin-top:12px"><a href="javascript:void(0)" onclick="stopConfirmPoll();_pendingConfirm=null;location.hash=\'#/\';renderAll()" style="color:var(--pink);font-weight:600;font-size:13px">' + esc(t("back")) + '</a></div></div>';
   window.scrollTo(0, 0);
 }
 async function resendConfirm() {
