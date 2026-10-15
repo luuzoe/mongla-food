@@ -172,7 +172,7 @@ async function useMyLocation(fieldId) {
     el.value = "GPS: " + lat.toFixed(5) + ", " + lng.toFixed(5);
   }, (err) => {
     toast("⚠️ " + (err.code === 1 ? t("gpsDenied") : t("gpsFailed")));
-  }, { timeout: 15000, maximumAge: 60000 });
+  }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
 }
 function setPref(k, v) {
   try { localStorage.setItem("mf_" + k, v); } catch (e) {}
