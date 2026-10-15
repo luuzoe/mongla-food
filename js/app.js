@@ -904,14 +904,17 @@ function postCardHTML(p, showShop) {
   const click = showShop ? ' onclick="location.hash=\'#/shop/' + p.shopId + "'\"" : "";
   const shopLabel = (showShop && p.shopName)
     ? '<div class="post-shop" onclick="event.stopPropagation();location.hash=\'#/shop/' + p.shopId + "'\">🏪 " + esc(p.shopName) + "</div>" : "";
+  const isNew = p.createdAt && (Date.now() - new Date(p.createdAt).getTime()) < 24 * 3600 * 1000;
   return '<div class="post-card" data-key="' + key + '"' + click + ">" +
     '<div class="post-photo" style="position:relative">' + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy">' : "📢") +
+    (isNew ? '<span style="position:absolute;top:6px;left:6px;background:#e91e63;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px">🆕 NEW</span>' : "") +
     '<button class="fav-star' + (isFav(key) ? ' on' : '') + '" onclick="event.stopPropagation();toggleFav(\'' + key + '\')">' + (isFav(key) ? '\u2605' : '\u2606') + '</button></div>' +
     '<div class="post-body">' +
     '<div class="post-text">' + esc(p.body) + "</div>" +
     shopLabel +
     '<div class="post-foot">' + postFootHTML(key, p, inCart) + "</div>" +
-    '<div class="post-time">🏷️ ' + esc(catName(p.category || "foods")) + " · " + esc(fmtTime(p.createdAt)) + "</div>" +
+    '<div class="post-time">🏷️ ' + esc(catName(p.category || "foods")) + " · " + esc(fmtTime(p.createdAt)) +
+    (p.deliveryFee ? ' · 🛵 ' + esc(t("deliveryFee")) + ' ¥' + p.deliveryFee : "") + "</div>" +
     "</div></div>";
 }
 /* Homepage feed: newest posts across ALL shops (after the product grid). */
@@ -920,12 +923,12 @@ async function drawFeed() {
   if (!box) return;
   try {
     const { data, error } = await sb.from("posts")
-      .select("*, shops(name_zh, name_my, name_en, approved)")
+      .select("*, shops(name_zh, name_my, name_en, approved, delivery_fee_yuan)")
       .order("created_at", { ascending: false }).limit(20);
     if (error) throw error;
     const list = (data || []).filter(r => !r.shops || r.shops.approved !== false).slice(0, 10).map(r => {
       const p = mapPost(r);
-      if (r.shops) { p.shopName = shopName(r.shops); regPost(p.shopId, r.shops, p); }
+      if (r.shops) { p.shopName = shopName(r.shops); p.deliveryFee = Number(r.shops.delivery_fee_yuan) || 0; regPost(p.shopId, r.shops, p); }
       return p;
     });
     window._feedPosts = list;
