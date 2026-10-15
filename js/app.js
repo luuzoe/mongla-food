@@ -152,6 +152,28 @@ function getPref(k, dflt) {
   try { const v = localStorage.getItem("mf_" + k); return v == null ? dflt : v; }
   catch (e) { return dflt; }
 }
+/* GPS: fill an address field from the device location (free browser API +
+ * OpenStreetMap reverse-geocode, no key needed). */
+async function useMyLocation(fieldId) {
+  const el = document.getElementById(fieldId);
+  if (!el) return;
+  if (!navigator.geolocation) { toast("⚠️ " + t("gpsNotSupported")); return; }
+  toast("📍 " + t("locating"));
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    try {
+      const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=my");
+      const j = await r.json();
+      if (j && j.display_name) {
+        el.value = j.display_name;
+        return;
+      }
+    } catch (e) {}
+    el.value = "GPS: " + lat.toFixed(5) + ", " + lng.toFixed(5);
+  }, (err) => {
+    toast("⚠️ " + (err.code === 1 ? t("gpsDenied") : t("gpsFailed")));
+  }, { timeout: 15000, maximumAge: 60000 });
+}
 function setPref(k, v) {
   try { localStorage.setItem("mf_" + k, v); } catch (e) {}
 }
@@ -714,7 +736,8 @@ function viewSettings() {
       "<span>" + label + "</span></div>"
     ).join("") + "</div></div></div>" +
     '<div class="card" style="padding:10px 12px"><h3 style="font-size:14px;margin:0 0 8px">📍 ' + esc(t("savedContact")) + "</h3>" +
-    '<div class="field" style="margin-bottom:8px"><label style="font-size:12px">' + esc(t("deliveryAddress")) + '</label><input id="s-addr" style="padding:8px;font-size:13px" value="' + esc(getPref("addr", "")) + '"></div>' +
+    '<div class="field" style="margin-bottom:8px"><label style="font-size:12px">' + esc(t("deliveryAddress")) + '</label><div style="display:flex;gap:6px"><input id="s-addr" style="flex:1;padding:8px;font-size:13px" value="' + esc(getPref("addr", "")) + '">' +
+    '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'s-addr\')">📍</button></div></div>' +
     '<div class="field" style="margin-bottom:8px"><label style="font-size:12px">' + esc(t("deliveryPhone")) + '</label><input id="s-phone" style="padding:8px;font-size:13px" value="' + esc(getPref("phone", "")) + '"></div>' +
     '<button class="btn" style="width:100%;padding:8px" onclick="savePrefs()">' + esc(t("save")) + "</button></div>" +
     '<div class="card" style="padding:10px 12px"><h3 style="font-size:14px;margin:0 0 6px">🔔 ' + esc(t("notifTitle")) + "</h3>" +
@@ -1207,7 +1230,8 @@ async function viewCart() {
     "</div>";
   }
   html += '<div class="card"><h3>📍 ' + esc(t("deliveryAddress")) + "</h3>" +
-    '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><input id="co-addr" value="' + esc(getPref("addr", "")) + '"></div>' +
+    '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><div style="display:flex;gap:6px"><input id="co-addr" style="flex:1" value="' + esc(getPref("addr", "")) + '">' +
+    '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'co-addr\')">📍 ' + esc(t("useMyLocation")) + "</button></div></div>" +
     '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="co-phone" value="' + esc((userDoc && userDoc.phone) || getPref("phone", "")) + '"></div>' +
     '<div class="field"><label>' + esc(t("orderNote")) + '</label><input id="co-note" placeholder="' + esc(t("notePlaceholder")) + '"></div></div>';
   html += '<div class="card"><h3>💰 ' + esc(t("payMethod")) + "</h3>" +
