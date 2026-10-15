@@ -581,10 +581,22 @@ function showConfirmWaiting(contact, email, pass) {
   window.scrollTo(0, 0);
 }
 async function resendConfirm() {
-  if (!_pendingConfirm) return;
+  let email = _pendingConfirm && _pendingConfirm.email;
+  if (!email) {
+    try {
+      const pr = localStorage.getItem("mf_pending_reg");
+      if (pr) email = JSON.parse(pr).auth_email || "";
+    } catch (e) {}
+  }
+  if (!email) { toast("⚠️ " + t("resendNoEmail")); return; }
   try {
-    const { error } = await sb.auth.resend({ type: "signup", email: _pendingConfirm.email });
-    toast(error ? "⚠️ " + error.message : "📧 " + t("confirmResent"));
+    const { error } = await sb.auth.resend({ type: "signup", email: email });
+    if (error) {
+      // Supabase rate-limits resends; show the real reason.
+      toast("⚠️ " + error.message);
+    } else {
+      toast("📧 " + t("confirmResent"));
+    }
   } catch (e) { toast("⚠️ " + e.message); }
 }
 /* After clicking the Gmail link, Supabase redirects back with tokens in the URL;

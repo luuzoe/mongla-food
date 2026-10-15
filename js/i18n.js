@@ -186,6 +186,7 @@ const STR = {
   confirmHint:       { zh: "点击邮件中的链接后将自动登录", my: "Gmail ထဲက link ကို နှိပ်တာနဲ့ auto ဝင်ပြီးသား ဖြစ်မယ်", en: "Click the link in your email and you'll be signed in automatically" },
   resendEmail:       { zh: "重发确认邮件", my: "Email ပြန်ပို့", en: "Resend email" },
   confirmResent:     { zh: "已重发", my: "ပြန်ပို့ပြီးပြီ", en: "Resent" },
+  resendNoEmail:     { zh: "找不到待确认的邮箱，请重新注册", my: "အတည်ပြုမည့် Email မတွေ့ — ပြန်ဖွင့်ပါ", en: "No pending email found, please register again" },
   back:              { zh: "返回", my: "နောက်သို့", en: "Back" },
   deliveryAddress:   { zh: "收货地址", my: "ပို့ဆောင်ရမည့်လိပ်စာ", en: "Delivery address" },
   useMyLocation:     { zh: "使用我的位置", my: "ကျွန်တော့် နေရာ သုံး", en: "Use my location" },
