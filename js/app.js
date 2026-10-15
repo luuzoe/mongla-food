@@ -160,11 +160,11 @@ async function useMyLocation(fieldId) {
   if (!el) return;
   if (!navigator.geolocation) { toast("⚠️ " + t("gpsNotSupported")); return; }
   toast("📍 " + t("locating"));
-  let best = null, attempts = 0;
+  let best = null, attempts = 0, lastErr = null;
   const tryOnce = () => new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve(pos),
-      () => resolve(null),
+      (err) => { lastErr = err; resolve(null); },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   });
@@ -176,7 +176,12 @@ async function useMyLocation(fieldId) {
     if (best.coords.accuracy <= 3) break;
     toast("📍 " + t("gpsRefining") + " (" + Math.round(best.coords.accuracy) + "m)");
   }
-  if (!best) { toast("⚠️ " + t("gpsFailed")); return; }
+  if (!best) {
+    if (lastErr && lastErr.code === 1) toast("⚠️ " + t("gpsDenied"));
+    else if (lastErr && (lastErr.code === 2 || lastErr.code === 3)) toast("⚠️ " + t("gpsTurnOn"));
+    else toast("⚠️ " + t("gpsFailed"));
+    return;
+  }
   const lat = best.coords.latitude, lng = best.coords.longitude;
   try {
     const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=my");
