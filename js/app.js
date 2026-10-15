@@ -154,7 +154,7 @@ function getPref(k, dflt) {
 }
 /* GPS: fill an address field from the device location (free browser API +
  * OpenStreetMap reverse-geocode, no key needed).
- * Retries until accuracy <= 10m (or 3 attempts), keeps the best reading. */
+ * Retries until accuracy <= 3m (or 5 attempts), keeps the best reading. */
 async function useMyLocation(fieldId) {
   const el = document.getElementById(fieldId);
   if (!el) return;
@@ -168,12 +168,12 @@ async function useMyLocation(fieldId) {
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   });
-  while (attempts < 3) {
+  while (attempts < 5) {
     attempts++;
     const pos = await tryOnce();
     if (!pos) break;
     if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
-    if (best.coords.accuracy <= 10) break;
+    if (best.coords.accuracy <= 3) break;
     toast("📍 " + t("gpsRefining") + " (" + Math.round(best.coords.accuracy) + "m)");
   }
   if (!best) { toast("⚠️ " + t("gpsFailed")); return; }
