@@ -2107,7 +2107,8 @@ function shopForm(s) {
   return '<div class="card"><h3>' + esc(myShop ? t("saveShop") : t("createShop")) + "</h3>" +
     '<div class="field"><label>' + esc(t("shopName")) + '</label><input id="s-zh" value="' + v("name_zh") + '"></div>' +
     '<div class="field"><label>' + esc(t("ownerName")) + '</label><input id="s-owner" value="' + v("ownerName") + '"></div>' +
-    '<div class="field"><label>' + esc(t("address")) + '</label><input id="s-azh" value="' + v("address_zh") + '"></div>' +
+    '<div class="field"><label>' + esc(t("address")) + '</label><div style="display:flex;gap:6px"><input id="s-azh" style="flex:1" value="' + v("address_zh") + '">' +
+    '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'s-azh\')">📍 ' + esc(t("useMyLocation")) + "</button></div></div>" +
     '<div class="field"><label>' + esc(t("phone")) + '</label><input id="s-phone" value="' + v("phone") + '"></div>' +
     '<div class="field"><label>' + esc(t("wechatId")) + '</label><input id="s-wechat" value="' + v("wechatId") + '"></div>' +
     '<div class="field"><label>' + esc(t("deliveryFeeYuan")) + '</label><input id="s-fee" type="number" min="0" step="1" value="' + esc(s.deliveryFee != null ? s.deliveryFee : 0) + '"></div>' +
