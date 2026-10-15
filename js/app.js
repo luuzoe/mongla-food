@@ -609,7 +609,7 @@ async function resendConfirm() {
   }
   if (!email) { toast("⚠️ " + t("resendNoEmail")); return; }
   try {
-    const { error } = await sb.auth.resend({ type: "signup", email: email });
+    const { error } = await sb.auth.resend({ type: "signup", email: email, options: { emailRedirectTo: "https://luuzoe.github.io/mongla-food/" } });
     if (error) {
       // Supabase rate-limits resends; show the real reason.
       toast("⚠️ " + error.message);
@@ -683,7 +683,7 @@ async function doCreateAccount() {
       }
       phone = phoneNorm;
     }
-    const { data, error } = await sb.auth.signUp({ email: email, password: pass });
+    const { data, error } = await sb.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: "https://luuzoe.github.io/mongla-food/" } });
     if (error) throw error;
     let user = data.user;
     if (!data.session) {
