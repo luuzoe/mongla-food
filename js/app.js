@@ -183,15 +183,17 @@ async function useMyLocation(fieldId) {
     return;
   }
   const lat = best.coords.latitude, lng = best.coords.longitude;
+  const acc = Math.round(best.coords.accuracy);
+  const coordSuffix = " (GPS " + lat.toFixed(5) + ", " + lng.toFixed(5) + " ±" + acc + "m)";
   try {
     const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=my");
     const j = await r.json();
     if (j && j.display_name) {
-      el.value = j.display_name;
+      el.value = j.display_name + coordSuffix;
       return;
     }
   } catch (e) {}
-  el.value = "GPS: " + lat.toFixed(5) + ", " + lng.toFixed(5);
+  el.value = "GPS: " + lat.toFixed(5) + ", " + lng.toFixed(5) + " ±" + acc + "m";
 }
 function setPref(k, v) {
   try { localStorage.setItem("mf_" + k, v); } catch (e) {}
