@@ -790,8 +790,21 @@ function toggleTheme() {
 /* Help: short trilingual FAQ. */
 function viewHelp() {
   const app = document.getElementById("app");
+  const steps = (arr) => arr.map((s, i) =>
+    '<div style="display:flex;gap:8px;margin-bottom:8px"><span style="min-width:24px;height:24px;border-radius:50%;background:var(--pink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">' + (i + 1) + '</span><span style="font-size:13px;line-height:1.5">' + esc(s) + '</span></div>'
+  ).join("");
   app.innerHTML =
     '<div class="card"><h2>❓ ' + esc(t("helpTitle")) + "</h2>" +
+    "<h3>🛒 " + esc(t("guideCustomer")) + "</h3>" + steps([
+      t("guideCust1"), t("guideCust2"), t("guideCust3"), t("guideCust4"), t("guideCust5")
+    ]) +
+    "<h3>🏪 " + esc(t("guideVendor")) + "</h3>" + steps([
+      t("guideVend1"), t("guideVend2"), t("guideVend3"), t("guideVend4"), t("guideVend5")
+    ]) +
+    "<h3>🛵 " + esc(t("guideDriver")) + "</h3>" + steps([
+      t("guideDrv1"), t("guideDrv2"), t("guideDrv3"), t("guideDrv4"), t("guideDrv5")
+    ]) +
+    "<h3>❓ " + esc(t("helpFAQ")) + "</h3>" +
     "<h3>" + esc(t("helpQ1")) + "</h3><p>" + esc(t("helpA1")) + "</p>" +
     "<h3>" + esc(t("helpQ2")) + "</h3><p>" + esc(t("helpA2")) + "</p>" +
     "<h3>" + esc(t("helpQ3")) + "</h3><p>" + esc(t("helpA3")) + "</p>" +
