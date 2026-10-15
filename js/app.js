@@ -153,26 +153,40 @@ function getPref(k, dflt) {
   catch (e) { return dflt; }
 }
 /* GPS: fill an address field from the device location (free browser API +
- * OpenStreetMap reverse-geocode, no key needed). */
+ * OpenStreetMap reverse-geocode, no key needed).
+ * Retries until accuracy <= 10m (or 3 attempts), keeps the best reading. */
 async function useMyLocation(fieldId) {
   const el = document.getElementById(fieldId);
   if (!el) return;
   if (!navigator.geolocation) { toast("⚠️ " + t("gpsNotSupported")); return; }
   toast("📍 " + t("locating"));
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    try {
-      const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=my");
-      const j = await r.json();
-      if (j && j.display_name) {
-        el.value = j.display_name;
-        return;
-      }
-    } catch (e) {}
-    el.value = "GPS: " + lat.toFixed(5) + ", " + lng.toFixed(5);
-  }, (err) => {
-    toast("⚠️ " + (err.code === 1 ? t("gpsDenied") : t("gpsFailed")));
-  }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+  let best = null, attempts = 0;
+  const tryOnce = () => new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+  while (attempts < 3) {
+    attempts++;
+    const pos = await tryOnce();
+    if (!pos) break;
+    if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+    if (best.coords.accuracy <= 10) break;
+    toast("📍 " + t("gpsRefining") + " (" + Math.round(best.coords.accuracy) + "m)");
+  }
+  if (!best) { toast("⚠️ " + t("gpsFailed")); return; }
+  const lat = best.coords.latitude, lng = best.coords.longitude;
+  try {
+    const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=my");
+    const j = await r.json();
+    if (j && j.display_name) {
+      el.value = j.display_name;
+      return;
+    }
+  } catch (e) {}
+  el.value = "GPS: " + lat.toFixed(5) + ", " + lng.toFixed(5);
 }
 function setPref(k, v) {
   try { localStorage.setItem("mf_" + k, v); } catch (e) {}

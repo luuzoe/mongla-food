@@ -171,6 +171,7 @@ const STR = {
   locating:          { zh: "正在定位…", my: "နေရာ ရှာနေသည်…", en: "Locating…" },
   gpsNotSupported:   { zh: "此设备不支持定位", my: "ဒီ စက်မှာ GPS မရ", en: "GPS not supported on this device" },
   gpsDenied:         { zh: "请允许位置权限", my: "Location ခွင့်ပြုပေးပါ", en: "Please allow location permission" },
+  gpsRefining:       { zh: "正在提高精度", my: "တိကျအောင် ပြန်ယူနေသည်", en: "Refining accuracy" },
   gpsFailed:         { zh: "定位失败", my: "နေရာ ရှာမရ", en: "Could not get location" },
   deliveryPhone:     { zh: "收货电话", my: "လက်ခံမည့်ဖုန်းနံပါတ်", en: "Delivery phone" },
   orderNote:         { zh: "备注（可选）", my: "မှတ်ချက် (မထည့်လည်းရ)", en: "Note (optional)" },
