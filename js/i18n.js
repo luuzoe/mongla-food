@@ -70,6 +70,7 @@ const STR = {
   helpQ5:             { zh: "遇到欺诈怎么办？", my: "အလိမ်အညာနဲ့ ကြုံရင် ဘယ်လိုလုပ်ရမလဲ။", en: "What if I encounter fraud?" },
   helpA5:             { zh: "在店铺页面或聊天窗口点击举报按钮，我们会尽快处理。恶意账号会被封禁。", my: "Shop page ဒါမှမဟုတ် chat ထဲက တိုင်ကြားရန် ခလုတ်နှိပ်ပါ — အမြန်ဆုံး စစ်ဆေးပေးမယ်။ အလိမ်အကောင့်တွေ ပိတ်ပစ်မယ်။", en: "Tap the report button on the shop page or in chat — we'll review quickly. Malicious accounts will be banned." },
   iAmCustomer:        { zh: "我是顾客", my: "ကျွန်ုပ်သည် ဝယ်သူပါ", en: "I'm a customer" },
+  customer:           { zh: "顾客", my: "ဝယ်သူ", en: "Customer" },
   iAmVendor:          { zh: "我是商家", my: "ကျွန်ုပ်သည် ဆိုင်ရှင်ပါ", en: "I'm a vendor" },
   iAmDriver:          { zh: "我是骑手", my: "ကျွန်ုပ်သည် deli သမားပါ", en: "I'm a driver" },
   driverPending:      { zh: "⏳ 您的骑手申请正在审核中", my: "⏳ deli သမား လျှောက်လွှာ အတည်ပြုချက် စောင့်နေပါတယ်", en: "⏳ Your driver application is pending approval" },
