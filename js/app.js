@@ -1502,29 +1502,7 @@ async function checkoutAll() {
   } finally { window._checkingOut = false; }
 }
 /* Create one order + drop the item list as a message into the vendor's chatbox. */
-async function ensureUserRow() {
-  if (!currentUser) return;
-  if (userDoc) return;
-  try {
-    const { data } = await sb.from("users").select("id").eq("id", currentUser.id).single();
-    if (data) { userDoc = mapUser(data); return; }
-  } catch (e) {}
-  // No users row (e.g. email-confirm redirect lost the stash) — create it so
-  // orders/chat (FK to users.id) don't fail with orders_customer_id_fkey.
-  try {
-    const { error } = await sb.from("users").insert({
-      id: currentUser.id, role: "customer",
-      first_name: "", last_name: "",
-      email: currentUser.email || "", phone: ""
-    });
-    if (!error) {
-      const r2 = await sb.from("users").select("*").eq("id", currentUser.id).single();
-      if (!r2.error && r2.data) userDoc = mapUser(r2.data);
-    }
-  } catch (e) {}
-}
 async function placeShopOrder(shopId, items, delivery) {
-  await ensureUserRow();
   let s = shopCache[shopId];
   if (!s) {
     const { data, error } = await sb.from("shops").select("*").eq("id", shopId).single();
@@ -1565,7 +1543,6 @@ async function placeShopOrder(shopId, items, delivery) {
 }
 /* One conversation per customer × shop (UNIQUE(shop_id, customer_id)). */
 async function ensureConversation(shopId, vendorUid) {
-  await ensureUserRow();
   const { data: existing } = await sb.from("conversations")
     .select("id").eq("shop_id", shopId).eq("customer_id", currentUser.id).single();
   if (existing) return existing.id;
