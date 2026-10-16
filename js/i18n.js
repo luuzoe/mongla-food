@@ -155,6 +155,8 @@ const STR = {
   itemsDropped:      { zh: "部分菜品已下架", my: "အချို့ဟင်းပွဲတွေ မရတော့ပါ", en: "Some items are no longer available" },
   noOrders:           { zh: "暂无订单", my: "အမှာစာမရှိသေးပါ", en: "No orders yet" },
   noAvailable:        { zh: "暂无可接订单", my: "ယူစရာ အမှာစာ မရှိသေးပါ", en: "No available orders" },
+  pickupLocation:    { zh: "取餐地点", my: "Order လာယူရန် နေရာ", en: "Order pickup location" },
+  deliverLocation:    { zh: "送餐地点", my: "Order ပို့ရမယ့် နေရာ", en: "Order delivery location" },
   createShop:         { zh: "创建我的店铺", my: "ကျွန်ုပ်ရဲ့ဆိုင် ဖွင့်မည်", en: "Create my shop" },
   saveShop:           { zh: "保存店铺信息", my: "ဆိုင်အချက်အလက် သိမ်းမည်", en: "Save shop info" },
   addItem:            { zh: "添加菜品", my: "ပစ္စည်းအသစ်ထည့်မည်", en: "Add item" },

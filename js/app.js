@@ -3146,8 +3146,8 @@ async function drawDriverTab(i) {
       '<div style="font-size:12px;font-weight:700;color:' + (o.payMethod === "cod" ? "#c00" : "#0a0") + '">' +
       "💰 " + esc(t("pay_" + o.payMethod)) + (o.payTxn ? " · " + esc(o.payTxn) : "") + "</div>" +
       '<div class="muted" style="font-size:12px">' +
-      "🏪 <b>" + esc(shName) + "</b>" + (shAddr ? "<br>📍 " + esc(shAddr) : "") + (sh.phone ? ' · <a href="tel:' + esc(sh.phone) + '">' + esc(sh.phone) + "</a>" : "") + "<br>" +
-      "\uD83D\uDCCD " + esc(o.deliveryAddress || "") + "<br>" +
+      "🏪 <b>" + esc(shName) + "</b>" + (shAddr ? "<br>📍 <b>" + esc(t("pickupLocation")) + ":</b> " + esc(shAddr) : "") + (sh.phone ? ' · <a href="tel:' + esc(sh.phone) + '">' + esc(sh.phone) + "</a>" : "") + "<br>" +
+      "\uD83D\uDCCD <b>" + esc(t("deliverLocation")) + ":</b> " + esc(o.deliveryAddress || "") + "<br>" +
       "\uD83D\uDC64 " + esc(o.customerName || "") + (o.customerPhone ? ' \u00b7 <a href="tel:' + esc(o.customerPhone) + '">' + esc(o.customerPhone) + "</a>" : "") + " \u00b7 " + esc(fmtTime(o.createdAt)) + "</div>" +
       (i === 0 ? '<div style="margin-top:6px"><button class="btn small green" data-acc="' + o.id + '">' + esc(t("acceptDelivery")) + "</button></div>"
         : i === 1 ? '<div style="margin-top:6px;display:flex;gap:8px"><button class="btn small green" data-dlv="' + o.id + '">' + esc(t("markDelivered")) + '</button><button class="btn small gray" data-rel="' + o.id + '">' + esc(t("releaseDelivery")) + "</button></div>"
