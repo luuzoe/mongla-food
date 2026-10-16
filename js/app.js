@@ -1351,7 +1351,7 @@ async function viewCart() {
     '<option value="wavepay">WavePay</option>' +
     '<option value="kbzpay">KBZPay</option>' +
     "</select></div>" +
-    '<div class="field" id="co-txnwrap" style="display:none"><label>' + esc(t("payTxn")) + '</label><input id="co-txn" placeholder="..." autocomplete="off"></div></div>';
+    '<div class="field" id="co-txnwrap" style="display:none"><label>' + esc(t("payTxn")) + '</label><input id="co-txn" placeholder="..." autocomplete="off" maxlength="6" inputmode="numeric"></div></div>';
   html += '<div class="card">' +
     '<div class="profile-row"><span>' + esc(t("subtotal")) + "</span><b>" + money(cartTotal()) + "</b></div>" +
     '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(cartFeesTotal()) + "</b></div>" +
