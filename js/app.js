@@ -1587,6 +1587,14 @@ async function placeShopOrder(shopId, items, delivery) {
 }
 /* One conversation per customer × shop (UNIQUE(shop_id, customer_id)). */
 async function ensureConversation(shopId, vendorUid) {
+  // Vendor ID must never be missing — else the vendor never sees the chat.
+  if (!vendorUid) {
+    try {
+      const { data } = await sb.from("shops").select("owner_id").eq("id", shopId).single();
+      if (data) vendorUid = data.owner_id;
+    } catch (e) {}
+  }
+  if (!vendorUid) throw new Error("shop owner not found");
   const { data: existing } = await sb.from("conversations")
     .select("id").eq("shop_id", shopId).eq("customer_id", currentUser.id).single();
   if (existing) return existing.id;
