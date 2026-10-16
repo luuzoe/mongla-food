@@ -1432,7 +1432,7 @@ async function checkoutAll() {
   const freshShops = {};
   for (const sid of shopIds) {
     try {
-      const { data } = await sb.from("shops").select("id,is_open,name_zh,name_my,name_en,wavepay_number,kbzpay_number").eq("id", sid).single();
+      const { data } = await sb.from("shops").select("id,is_open,name_zh,name_my,name_en,wavepay_number,kbzpay_number,owner_id").eq("id", sid).single();
       if (data) { freshShops[sid] = mapShop(data); shopCache[sid] = freshShops[sid]; }
     } catch (e) {}
     if (!freshShops[sid]) freshShops[sid] = shopCache[sid] || (window._shops || []).find(s => s.id === sid);
@@ -1548,7 +1548,7 @@ async function checkoutAll() {
 /* Create one order + drop the item list as a message into the vendor's chatbox. */
 async function placeShopOrder(shopId, items, delivery) {
   let s = shopCache[shopId];
-  if (!s) {
+  if (!s || !s.ownerUid) {
     const { data, error } = await sb.from("shops").select("*").eq("id", shopId).single();
     if (error || !data) throw new Error("shop not found");
     s = mapShop(data);
