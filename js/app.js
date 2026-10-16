@@ -593,18 +593,20 @@ async function pollConfirm() {
   } catch (e) {}
 }
 /* Logged in but no profile row: user fills their own info. */
+let _cpRole = "customer";
+function setCpRole(r) { _cpRole = r; showCompleteProfile(); }
 function showCompleteProfile() {
   const app = document.getElementById("app");
   app.innerHTML =
-    '<div class="card" style="padding:20px 16px">' +
-    '<h2 style="font-size:18px;margin:0 0 6px">👤 ' + esc(t("completeProfile")) + '</h2>' +
-    '<p style="font-size:13px;color:#666;margin:0 0 14px">' + esc(t("completeProfileHint")) + '</p>' +
-    '<label style="font-size:13px">' + esc(t("yourName")) + '</label>' +
-    '<input id="cp-name" style="width:100%;margin:4px 0 10px" placeholder="' + esc(t("yourName")) + '">' +
-    '<label style="font-size:13px">' + esc(t("phone")) + '</label>' +
-    '<input id="cp-phone" style="width:100%;margin:4px 0 10px" placeholder="09xxxxxxxxx">' +
-    '<label style="font-size:13px">' + esc(t("role")) + '</label>' +
-    '<select id="cp-role" style="width:100%;margin:4px 0 14px"><option value="customer">' + esc(t("customer")) + '</option><option value="vendor">' + esc(t("vendor")) + '</option><option value="driver">' + esc(t("driver")) + '</option></select>' +
+    '<div class="card"><h2>👤 ' + esc(t("completeProfile")) + '</h2>' +
+    '<p class="muted" style="font-size:13px;margin:0 0 14px">' + esc(t("completeProfileHint")) + '</p>' +
+    '<div class="field"><div class="role-pick">' +
+    '<div class="tab' + (_cpRole === "customer" ? " active" : "") + '" onclick="setCpRole(\'customer\')">' + esc(t("iAmCustomer")) + '</div>' +
+    '<div class="tab' + (_cpRole === "vendor" ? " active" : "") + '" onclick="setCpRole(\'vendor\')">' + esc(t("iAmVendor")) + '</div>' +
+    '<div class="tab' + (_cpRole === "driver" ? " active" : "") + '" onclick="setCpRole(\'driver\')">' + esc(t("iAmDriver")) + '</div>' +
+    '</div></div>' +
+    '<div class="field"><label>' + esc(t("yourName")) + '</label><input id="cp-name"></div>' +
+    '<div class="field"><label>' + esc(t("phone")) + '</label><input id="cp-phone" placeholder="09xxxxxxxxx"></div>' +
     '<button class="btn" style="width:100%" onclick="submitCompleteProfile()">' + esc(t("save")) + '</button>' +
     '</div>';
   window.scrollTo(0, 0);
@@ -612,7 +614,7 @@ function showCompleteProfile() {
 async function submitCompleteProfile() {
   const name = (document.getElementById("cp-name").value || "").trim();
   const phone = normPhone(document.getElementById("cp-phone").value || "");
-  const role = document.getElementById("cp-role").value || "customer";
+  const role = _cpRole || "customer";
   if (!name) { toast("⚠️ " + t("enterName")); return; }
   if (!phone) { toast("⚠️ " + t("enterPhone")); return; }
   const { error } = await sb.from("users").insert({
