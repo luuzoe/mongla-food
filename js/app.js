@@ -1342,7 +1342,7 @@ async function viewCart() {
   }
   html += '<div class="card"><h3>📍 ' + esc(t("deliveryAddress")) + "</h3>" +
     '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><div style="display:flex;gap:6px"><input id="co-addr" style="flex:1" value="' + esc(getPref("addr", "")) + '">' +
-    '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'co-addr\')">📍 ' + esc(t("useMyLocation")) + "</button></div></div>" +
+    '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'co-addr\', false)">📍 ' + esc(t("useMyLocation")) + "</button></div></div>" +
     '<div class="field"><label>' + esc(t("deliveryPhone")) + '</label><input id="co-phone" value="' + esc((userDoc && userDoc.phone) || getPref("phone", "")) + '"></div>' +
     '<div class="field"><label>' + esc(t("orderNote")) + '</label><input id="co-note" placeholder="' + esc(t("notePlaceholder")) + '"></div></div>';
   html += '<div class="card"><h3>💰 ' + esc(t("payMethod")) + "</h3>" +
