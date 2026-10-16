@@ -357,6 +357,13 @@ async function handleSession(session) {
         try { oauthRole = (pendingReg && pendingReg.role) || localStorage.getItem("mf_oauth_role") || "customer"; localStorage.removeItem("mf_oauth_role"); } catch (e) {}
         const regFirst = (pendingReg && pendingReg.first_name) || "";
         const regPhone = (pendingReg && pendingReg.phone) || "";
+        // No stashed registration data (e.g. confirmed from another browser):
+        // DON'T insert an empty row — let the user fill their own profile.
+        if (!pendingReg) {
+          window._needsProfile = true;
+          try { renderAll(); } catch (e) {}
+          return;
+        }
         const { error: insErr } = await sb.from("users").insert({
           id: currentUser.id, role: oauthRole,
           first_name: regFirst, last_name: "",
@@ -438,6 +445,8 @@ function renderDrawer() {
 function renderAll() {
   stopListeners();
   renderHeader();
+  // Logged in but no profile row: user fills their own info (never auto-create empty).
+  if (currentUser && window._needsProfile && !userDoc) return showCompleteProfile();
   const h = location.hash || "#/";
   const app = document.getElementById("app");
   document.getElementById("cartbar").innerHTML = "";
@@ -582,6 +591,41 @@ async function pollConfirm() {
     }
     // Still unconfirmed -> keep waiting silently.
   } catch (e) {}
+}
+/* Logged in but no profile row: user fills their own info. */
+function showCompleteProfile() {
+  const app = document.getElementById("app");
+  app.innerHTML =
+    '<div class="card" style="padding:20px 16px">' +
+    '<h2 style="font-size:18px;margin:0 0 6px">👤 ' + esc(t("completeProfile")) + '</h2>' +
+    '<p style="font-size:13px;color:#666;margin:0 0 14px">' + esc(t("completeProfileHint")) + '</p>' +
+    '<label style="font-size:13px">' + esc(t("yourName")) + '</label>' +
+    '<input id="cp-name" style="width:100%;margin:4px 0 10px" placeholder="' + esc(t("yourName")) + '">' +
+    '<label style="font-size:13px">' + esc(t("phone")) + '</label>' +
+    '<input id="cp-phone" style="width:100%;margin:4px 0 10px" placeholder="09xxxxxxxxx">' +
+    '<label style="font-size:13px">' + esc(t("role")) + '</label>' +
+    '<select id="cp-role" style="width:100%;margin:4px 0 14px"><option value="customer">' + esc(t("customer")) + '</option><option value="vendor">' + esc(t("vendor")) + '</option><option value="driver">' + esc(t("driver")) + '</option></select>' +
+    '<button class="btn" style="width:100%" onclick="submitCompleteProfile()">' + esc(t("save")) + '</button>' +
+    '</div>';
+  window.scrollTo(0, 0);
+}
+async function submitCompleteProfile() {
+  const name = (document.getElementById("cp-name").value || "").trim();
+  const phone = normPhone(document.getElementById("cp-phone").value || "");
+  const role = document.getElementById("cp-role").value || "customer";
+  if (!name) { toast("⚠️ " + t("enterName")); return; }
+  if (!phone) { toast("⚠️ " + t("enterPhone")); return; }
+  const { error } = await sb.from("users").insert({
+    id: currentUser.id, role: role,
+    first_name: name, last_name: "",
+    email: currentUser.email || "", phone: phone
+  });
+  if (error) { toast("⚠️ " + error.message); return; }
+  window._needsProfile = false;
+  const r = await sb.from("users").select("*").eq("id", currentUser.id).single();
+  if (!r.error && r.data) userDoc = mapUser(r.data);
+  toast("✅ " + t("done"));
+  try { renderAll(); } catch (e) {}
 }
 function showConfirmWaiting(contact, email, pass) {
   _pendingConfirm = { email: email, pass: pass };
