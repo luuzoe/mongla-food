@@ -2377,6 +2377,17 @@ async function viewChatPage(convId) {
     if (!conv || (conv.customer_id !== currentUser.id && conv.vendor_id !== currentUser.id)) {
       location.hash = "#/chats"; return;
     }
+    // Sync vendor_id with the shop's current owner (customer opening the
+    // chat via the Chat tab bypasses ensureConversation's sync).
+    if (conv.customer_id === currentUser.id && conv.shop_id) {
+      try {
+        const { data: sh } = await sb.from("shops").select("owner_id").eq("id", conv.shop_id).single();
+        if (sh && sh.owner_id && conv.vendor_id !== sh.owner_id) {
+          await sb.from("conversations").update({ vendor_id: sh.owner_id }).eq("id", convId);
+          conv.vendor_id = sh.owner_id;
+        }
+      } catch (e) {}
+    }
     let nm = conv.customer_name || "…";
     let avatarHtml = '<div class="shop-emoji">👤</div>';
     if (conv.customer_id === currentUser.id) {
