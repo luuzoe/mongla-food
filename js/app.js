@@ -1596,8 +1596,14 @@ async function ensureConversation(shopId, vendorUid) {
   }
   if (!vendorUid) throw new Error("shop owner not found");
   const { data: existing } = await sb.from("conversations")
-    .select("id").eq("shop_id", shopId).eq("customer_id", currentUser.id).single();
-  if (existing) return existing.id;
+    .select("id,vendor_id").eq("shop_id", shopId).eq("customer_id", currentUser.id).single();
+  if (existing) {
+    // Heal orphaned conversations created with missing vendor_id.
+    if (!existing.vendor_id && vendorUid) {
+      try { await sb.from("conversations").update({ vendor_id: vendorUid }).eq("id", existing.id); } catch (e) {}
+    }
+    return existing.id;
+  }
   const { data, error } = await sb.from("conversations").insert({
     shop_id: shopId, customer_id: currentUser.id, vendor_id: vendorUid,
     // denormalized so the vendor can show the customer name without
