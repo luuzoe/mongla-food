@@ -2421,7 +2421,7 @@ async function viewChatPage(convId) {
 async function viewChats() {
   if (needLogin()) return;
   const role = (userDoc && userDoc.role) || "customer";
-  const isV = role === "vendor";
+  const isV = role === "vendor" || role === "admin";
   window._openChatsView = null;
   const app = document.getElementById("app");
   app.innerHTML = '<h2>💬 ' + esc(t("chat")) + '</h2>' +
@@ -2771,7 +2771,7 @@ async function countTotalUnread() {
   try {
     if (!currentUser) return 0;
     const role = (userDoc && userDoc.role) || "customer";
-    const isV = role === "vendor";
+    const isV = role === "vendor" || role === "admin";
     const col = isV ? "vendor_id" : "customer_id";
     const rcol = isV ? "vendor_last_read_at" : "customer_last_read_at";
     const rkey = isV ? "vendorReadAt" : "customerReadAt";
@@ -2996,7 +2996,7 @@ function ensureGlobalChatWatch() {
   if (_gcCh && _gcCh._uid === uid) return;
   if (_gcCh) { try { sb.removeChannel(_gcCh); } catch (e) {} _gcCh = null; }
   const role = (userDoc && userDoc.role) || "customer";
-  const col = role === "vendor" ? "vendor_id" : "customer_id";
+  const col = (role === "vendor" || role === "admin") ? "vendor_id" : "customer_id";
   const ch = sb.channel("global-chats-" + uid + "-" + Date.now())
     .on("postgres_changes",
       { event: "UPDATE", schema: "public", table: "conversations", filter: col + "=eq." + uid },
