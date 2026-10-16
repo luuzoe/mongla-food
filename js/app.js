@@ -349,9 +349,13 @@ async function handleSession(session) {
           if (pr) {
             const parsed = JSON.parse(pr);
             // Only apply to the account this stash was created for.
+            // M4: only delete the stash when it matched — another user's
+            // login must not destroy this registration intent.
             if (parsed && parsed.auth_email && currentUser.email &&
-                parsed.auth_email === currentUser.email) pendingReg = parsed;
-            localStorage.removeItem("mf_pending_reg");
+                parsed.auth_email === currentUser.email) {
+              pendingReg = parsed;
+              localStorage.removeItem("mf_pending_reg");
+            }
           }
         } catch (e) {}
         try { oauthRole = (pendingReg && pendingReg.role) || localStorage.getItem("mf_oauth_role") || "customer"; localStorage.removeItem("mf_oauth_role"); } catch (e) {}
@@ -369,6 +373,13 @@ async function handleSession(session) {
           first_name: regFirst, last_name: "",
           email: (pendingReg && pendingReg.email) || currentUser.email || "", phone: regPhone
         });
+        if (insErr) {
+          // M5: insert failed (e.g. duplicate phone) — don't leave the user
+          // logged in with no profile; show the form to fix it.
+          window._needsProfile = true;
+          try { renderAll(); } catch (e) {}
+          return;
+        }
         if (!insErr) {
           const r2 = await sb.from("users").select("*").eq("id", currentUser.id).single();
           if (!r2.error && r2.data) userDoc = mapUser(r2.data);
@@ -561,7 +572,7 @@ function viewProfile() {
 function setRegRole(r) {
   // preserve typed inputs across the re-render
   const keep = {};
-  ["r-name", "r-contact", "r-pass", "r-owner", "r-phone"].forEach(id => {
+  ["f-name", "f-contact", "f-pass2", "f-shopname", "f-ownername"].forEach(id => {
     const el = document.getElementById(id);
     if (el) keep[id] = el.value;
   });
@@ -614,12 +625,25 @@ async function submitCompleteProfile() {
   try { role = localStorage.getItem("mf_oauth_role") || "customer"; } catch (e) {}
   if (!name) { toast("⚠️ " + t("enterName")); return; }
   if (!phone) { toast("⚠️ " + t("enterPhone")); return; }
-  const { error } = await sb.from("users").insert({
+  // Phone uniqueness check (same as registration).
+  try {
+    const { data: exists } = await sb.rpc("phone_exists", { p_phone: phone });
+    if (exists) { toast("⚠️ " + t("phoneUsed")); return; }
+  } catch (e) {}
+  // Validate role (mf_oauth_role could be stale).
+  if (!["customer", "vendor", "driver"].includes(role)) role = "customer";
+  const { error } = await sb.from("users").upsert({
     id: currentUser.id, role: role,
     first_name: name, last_name: "",
     email: currentUser.email || "", phone: phone
-  });
-  if (error) { toast("⚠️ " + error.message); return; }
+  }, { onConflict: "id" });
+  if (error) {
+    if (error.code === "23505" || (error.message || "").indexOf("users_phone_unique") >= 0) {
+      toast("⚠️ " + t("phoneUsed")); return;
+    }
+    toast("⚠️ " + error.message); return;
+  }
+  try { localStorage.removeItem("mf_oauth_role"); } catch (e) {}
   if (addr) { try { setPref("addr", addr); } catch (e) {} }
   window._needsProfile = false;
   const r = await sb.from("users").select("*").eq("id", currentUser.id).single();
@@ -671,9 +695,10 @@ async function doLogin() {
   const showErr = (m) => { if (errBox) errBox.textContent = "⚠️ " + m; };
   try {
     // Phone-number accounts were registered with a derived internal email.
+    // Use normPhone so 09... and +959... map to the same account.
     let email = contact;
     if (contact.indexOf("@") < 0) {
-      const digits = contact.replace(/\D/g, "");
+      const digits = normPhone(contact);
       if (!digits) throw new Error(t("enterPhoneOrEmail"));
       email = "phone_" + digits + "@phone.mongla.local";
     }
@@ -706,11 +731,12 @@ async function doCreateAccount() {
     if (isVendor && (!shopNm || !ownerNm)) throw new Error(t("fillShopInfo"));
     if (!isVendor && !custName) throw new Error(t("enterName"));
     let email = contact, phone = "";
-    if (contact.indexOf("@") < 0) {
+    const isPhoneSignup = contact.indexOf("@") < 0;
+    if (isPhoneSignup) {
       // Phone-number signup: Supabase email/password auth needs an email address,
       // so derive a stable internal login id and keep the real phone number in
       // the user row. (For real SMS OTP later, enable Supabase Phone Auth.)
-      const digits = contact.replace(/\D/g, "");
+      const digits = normPhone(contact);
       if (!digits) throw new Error(t("enterPhoneOrEmail"));
       email = "phone_" + digits + "@phone.mongla.local";
       phone = contact;
@@ -735,6 +761,22 @@ async function doCreateAccount() {
       // session — try an immediate sign-in (works when Confirm email is OFF).
       const s2 = await sb.auth.signInWithPassword({ email: email, password: pass });
       if (s2.error) {
+        // Phone signup: fake @phone.mongla.local can never receive a
+        // confirmation email — auto-confirm via RPC (migrate-v26) instead
+        // of trapping the user on the waiting screen forever.
+        if (isPhoneSignup) {
+          try {
+            const { data: ok } = await sb.rpc("confirm_phone_user", { p_email: email });
+            if (ok) {
+              const s3 = await sb.auth.signInWithPassword({ email: email, password: pass });
+              if (!s3.error) { user = s3.data.user; }
+              else throw new Error(t("phoneNeedAdmin"));
+            } else throw new Error(t("phoneNeedAdmin"));
+          } catch (e) {
+            if (e.message === t("phoneNeedAdmin")) throw e;
+            throw new Error(t("phoneNeedAdmin"));
+          }
+        }
         // Email confirmation pending: stash the registration intent so the
         // post-redirect handleSession() can create the profile row + shop
         // (this tab's JS state is lost when the user leaves for Gmail).
@@ -742,7 +784,7 @@ async function doCreateAccount() {
           localStorage.setItem("mf_pending_reg", JSON.stringify({
             auth_email: email, role: regRole || "customer",
             first_name: isVendor ? ownerNm : custName,
-            email: contact, phone: phone,
+            email: email, phone: phone,
             shop_name: isVendor ? shopNm : "", owner_name: isVendor ? ownerNm : ""
           }));
         } catch (e) {}
@@ -757,13 +799,15 @@ async function doCreateAccount() {
       id: user.id, role: regRole,
       first_name: isVendor ? ownerNm : custName,
       last_name: "",
-      email: contact, phone: phone
+      email: email, phone: phone
     }, { onConflict: "id" });
     if (upErr) {
       if (upErr.code === "23505" || (upErr.message || "").indexOf("users_phone_unique") >= 0)
         throw new Error(t("phoneUsed"));
       throw upErr;
     }
+    // M3: clear the complete-profile flag — the row now exists.
+    window._needsProfile = false;
     if (isVendor) {
       // Create the vendor's shop right away so the dashboard is ready.
       // (shopName() falls back to name_zh for all languages.)
@@ -1450,6 +1494,7 @@ async function checkoutAll() {
       if (!num) { toast("⚠️ " + (sh ? shopName(sh) : "") + ": " + t("noPayNumber")); window._checkingOut = false; return; }
     }
     if (!payTxn) { toast("⚠️ " + t("fillTxn")); window._checkingOut = false; return; }
+    if (!/^\d{6}$/.test(payTxn)) { toast("⚠️ " + t("txn6Digits")); window._checkingOut = false; return; }
   }
   // re-validate items are still available (vendor may have marked sold-out)
   const allItemIds = [...new Set(Object.values(cart.items).map(it => it.itemId).filter(id => id && !String(id).startsWith("post_")))];
@@ -1458,9 +1503,10 @@ async function checkoutAll() {
       const { data } = await sb.from("menu_items").select("id,available").in("id", allItemIds);
       const availMap = {};
       (data || []).forEach(m => { availMap[m.id] = m.available !== false; });
+      // M6: deleted item is ABSENT from availMap (undefined) — also drop it.
       const soldOut = Object.values(cart.items).filter(it => {
         const id = it.itemId;
-        return id && !String(id).startsWith("post_") && availMap[id] === false;
+        return id && !String(id).startsWith("post_") && availMap[id] !== true;
       });
       if (soldOut.length) {
         soldOut.forEach(it => {
@@ -1485,7 +1531,8 @@ async function checkoutAll() {
       const overSold = Object.entries(cart.items).filter(([k, it]) => {
         const pid = it.itemId && String(it.itemId).startsWith("post_") ? String(it.itemId).slice(5) : null;
         const q = pid ? qtyMap[pid] : null;
-        return pid && q !== null && q !== undefined && it.qty > q;
+        // M7: deleted post -> q is undefined -> treat as over-sold (drop it).
+        return pid && (q === undefined || (q !== null && it.qty > q));
       });
       if (overSold.length) {
         overSold.forEach(([k, it]) => {
@@ -1610,12 +1657,22 @@ async function ensureConversation(shopId, vendorUid) {
   const { data, error } = await sb.from("conversations").insert({
     shop_id: shopId, customer_id: currentUser.id, vendor_id: vendorUid,
     // denormalized so the vendor can show the customer name without
-    // reading the customer's private user row (RLS forbids it)
-    customer_name: (userDoc && userDoc.name) || currentUser.email,
+    // reading the customer's private user row (RLS forbids it).
+    // NEVER fall back to email — vendor must not see it.
+    customer_name: (userDoc && userDoc.name) || (userDoc && userDoc.phone) || t("customer"),
     customer_avatar_url: (userDoc && userDoc.avatarUrl) || null,
     last_message_at: new Date().toISOString()
   }).select("id").single();
-  if (error) throw error;
+  if (error) {
+    // M9: duplicate-insert race (two tabs) — the other tab won;
+    // re-select the existing conversation instead of throwing.
+    if (error.code === "23505") {
+      const { data: retry } = await sb.from("conversations")
+        .select("id").eq("shop_id", shopId).eq("customer_id", currentUser.id).single();
+      if (retry) return retry.id;
+    }
+    throw error;
+  }
   return data.id;
 }
 
@@ -1639,7 +1696,7 @@ async function unreadCounts(convIds, readKey, convById) {
       .in("conversation_id", ids)
       .neq("sender_id", currentUser.id)
       .order("created_at", { ascending: false })
-      .limit(300);
+      .limit(1000);
     if (error || !data) return counts;
     for (const m of data) {
       const c = convById[m.conversation_id] || {};
@@ -1877,7 +1934,7 @@ function rateSheet(orderId) {
         if (!it || !it.itemId || String(it.itemId).startsWith("post_")) continue;
         await sb.from("ratings").upsert({
           shop_id: o.shopId, product_id: it.itemId, customer_id: currentUser.id,
-          customer_name: (userDoc && userDoc.name) || currentUser.email || "",
+          customer_name: (userDoc && userDoc.name) || (userDoc && userDoc.phone) || t("customer"),
           stars: sel[i], comment: comment
         }, { onConflict: "product_id,customer_id" });
         window._rateFetched.delete(it.itemId);
@@ -2042,7 +2099,8 @@ async function toggleOrderChat(orderId) {
 }
 async function confirmReceived(orderId) {
   if (!(await confirmDlg(t("confirmReceived") + "?"))) return;
-  const r = await sb.from("orders").update({ status: "done" }).eq("id", orderId);
+  // Only from delivered - customer confirms receipt.
+  const r = await sb.from("orders").update({ status: "done" }).eq("id", orderId).eq("status", "delivered");
   if (r.error) toast("\u26A0\uFE0F " + r.error.message); else viewOrders();
 }
 
@@ -2054,8 +2112,8 @@ function orderCard(o, shop, isVendor) {
   if (isVendor) {
     if (o.status === "pending") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','accepted')\">" + esc(t("acceptOrder")) + "</button>";
     if (o.status === "accepted") btns += '<button class="btn small" onclick="setStatus(\'' + o.id + "','" + o.convId + "','ready')\">" + esc(t("markReady")) + "</button>";
-    if (o.status === "delivering") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','done')\">" + esc(t("completeOrder")) + "</button>";
-    if (o.status === "ready") btns += '<button class="btn small" onclick="setStatus(\'' + o.id + "','" + o.convId + "','delivering')\">" + esc(t("markDelivering")) + "</button>";
+    // Vendor must NOT mark delivering — only the driver claims ready→delivering.
+    if (o.status === "delivered") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','done')\">" + esc(t("completeOrder")) + "</button>";
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
     if (o.status === "done" || o.status === "cancelled")
@@ -2066,7 +2124,7 @@ function orderCard(o, shop, isVendor) {
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
     btns += '<button class="btn small" data-reorder="' + o.id + '">🔁 ' + esc(t("reorder")) + "</button>";
-    if (o.status === "delivering")
+    if (o.status === "delivered")
       btns += '<button class="btn small green" data-confirmrecv="' + o.id + '">' + esc(t("confirmReceived")) + "</button>";
     if (o.status === "done")
       btns += '<button class="btn small" data-rateorder="' + o.id + '">⭐ ' + esc(t("rateIt")) + "</button>";
@@ -2109,6 +2167,22 @@ function toggleOrderCard(headEl) {
 }
 async function setStatus(orderId, convId, status) {
   try {
+    // Status transition guards — vendor cannot jump pending→done,
+    // driver flow is the only path to delivering/delivered.
+    const ALLOWED = {
+      pending: ["accepted", "cancelled"],
+      accepted: ["ready", "cancelled"],
+      ready: [], // driver claims ready→delivering via acceptDelivery
+      delivering: ["delivered"], // driver marks delivered
+      delivered: ["done"], // customer confirms (or vendor fallback)
+      done: [], cancelled: []
+    };
+    const { data: cur, error: curErr } = await sb.from("orders").select("status").eq("id", orderId).single();
+    if (curErr || !cur) throw new Error(t("orderNotFound"));
+    if (!(ALLOWED[cur.status] || []).includes(status)) {
+      toast("⚠️ " + t("invalidStatus"));
+      return;
+    }
     const { error } = await sb.from("orders").update({ status: status }).eq("id", orderId);
     if (error) throw error;
     if (convId && convId !== "null" && convId !== "undefined") {
@@ -2126,6 +2200,9 @@ async function setStatus(orderId, convId, status) {
 async function cancelMyOrder(orderId) {
   if (!(await confirmDlg(t("cancelOrder") + "?"))) return;
   try {
+    // Only pending/accepted can be cancelled.
+    const { data: cur } = await sb.from("orders").select("status").eq("id", orderId).single();
+    if (!cur || !["pending", "accepted"].includes(cur.status)) { toast("⚠️ " + t("invalidStatus")); return; }
     const { error } = await sb.from("orders").update({ status: "cancelled" }).eq("id", orderId);
     if (error) throw error;
     renderAll();
@@ -2151,7 +2228,7 @@ async function viewVendor() {
     return;
   }
   try {
-    const { data, error } = await sb.from("shops").select("*").eq("owner_id", currentUser.id).limit(1);
+    const { data, error } = await sb.from("shops").select("*").eq("owner_id", currentUser.id).order("created_at", { ascending: true }).limit(1);
     if (error) throw error;
     myShop = (data && data.length) ? mapShop(data[0]) : null;
   } catch (e) { body.innerHTML = "⚠️ " + esc(e.message); return; }
@@ -2374,7 +2451,8 @@ async function viewChatPage(convId) {
   window._openChatsView = convId;
   try {
     const { data: conv } = await sb.from("conversations").select("*").eq("id", convId).single();
-    if (!conv || (conv.customer_id !== currentUser.id && conv.vendor_id !== currentUser.id)) {
+    const isAdminUser = (userDoc && userDoc.role) === "admin";
+    if (!conv || (conv.customer_id !== currentUser.id && conv.vendor_id !== currentUser.id && !isAdminUser)) {
       location.hash = "#/chats"; return;
     }
     // Sync vendor_id with the shop's current owner (customer opening the
@@ -2428,6 +2506,7 @@ async function viewChats() {
     '<div id="chats-list"><div class="center muted">\u2026</div></div><div id="chats-view"></div>';
   const col = isV ? "vendor_id" : "customer_id";
   const readKey = isV ? "vendorReadAt" : "customerReadAt";
+  const isAdmin = role === "admin";
 
   const render = async () => {
     const listBox = document.getElementById("chats-list");
@@ -2443,6 +2522,17 @@ async function viewChats() {
         else {
           const r = await sb.from("conversations").select("*").in("shop_id", sids).order("last_message_at", { ascending: false });
           data = r.data; error = r.error;
+        }
+        // M12: admin (dual vendor+customer account) also sees their
+        // customer conversations — merge, dedupe, sort by recency.
+        if (isAdmin) {
+          const rc = await sb.from("conversations").select("*")
+            .eq("customer_id", currentUser.id).order("last_message_at", { ascending: false });
+          if (!rc.error && rc.data) {
+            const seen = new Set((data || []).map(d => d.id));
+            for (const d of rc.data) if (!seen.has(d.id)) { (data = data || []).push(d); seen.add(d.id); }
+            data.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+          }
         }
       } else {
         const r = await sb.from("conversations").select("*")
@@ -2471,13 +2561,21 @@ async function viewChats() {
       syncChatTabBadge();
       refreshTotalUnread(false);
       if (!list.length) { listBox.innerHTML = '<div class="card center muted">' + esc(t("noChats")) + "</div>"; return; }
+      // M12: per-conversation perspective — if I am the customer, show shop;
+      // otherwise (vendor conv) show customer name.
+      const shopIdsAll = [...new Set(list.map(c => c.shopId).filter(Boolean))];
+      if (shopIdsAll.length && isAdmin) {
+        const { data: shAll } = await sb.from("shops").select("id,name_zh,name_my,name_en,photo_url").in("id", shopIdsAll);
+        (shAll || []).forEach(x => { names[x.id] = shopName(mapShop(x)); if (x.photo_url) shopPhotos[x.id] = x.photo_url; });
+      }
       listBox.innerHTML = list.map(c => {
-        const nm = isV ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
-        const avatar = (!isV && shopPhotos[c.shopId])
+        const cIsVendor = c.customerUid !== currentUser.id;
+        const nm = cIsVendor ? (c.customerName || "\u2026") : (names[c.shopId] || "\u2026");
+        const avatar = (!cIsVendor && shopPhotos[c.shopId])
           ? '<img class="shop-thumb" src="' + esc(shopPhotos[c.shopId]) + '" alt="" loading="lazy">'
-          : (isV && c.customerAvatarUrl
+          : (cIsVendor && c.customerAvatarUrl
             ? '<img class="shop-thumb" src="' + esc(c.customerAvatarUrl) + '" alt="" loading="lazy">'
-            : '<div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>");
+            : '<div class="shop-emoji">' + (cIsVendor ? "👤" : "🏪") + "</div>");
         return '<div class="card shop-card" data-conv="' + c.id + '" data-nm="' + esc(nm) + '">' + avatar +
           '<div style="flex:1"><h3>' + esc(nm) +
           (unread[c.id] ? ' <span class="ubadge" translate="no">' + Number(unread[c.id]) + "</span>" : "") + "</h3>" +
@@ -2607,12 +2705,7 @@ async function renderChatList() {
 async function drawVendorOrders(skipChannel) {
   const box = document.getElementById("vtab");
   if (!box) return;
-  // auto-cancel stale pending orders (>30 min, vendor never responded)
-  try {
-    const cutoff = new Date(Date.now() - 30 * 60000).toISOString();
-    await sb.from("orders").update({ status: "cancelled" })
-      .eq("vendor_id", currentUser.id).eq("status", "pending").lt("created_at", cutoff);
-  } catch (e) {}
+  // NOTE: no auto-cancel — vendor decides when to cancel an order.
   // realtime first: vendor hears about new orders even with an empty list
   if (!skipChannel) {
   try {
@@ -3197,7 +3290,9 @@ async function acceptDelivery(orderId) {
 }
 async function driverDelivered(orderId) {
   if (!(await confirmDlg(t("markDelivered") + "?"))) return;
-  const { error } = await sb.from("orders").update({ status: "done" }).eq("id", orderId).eq("driver_id", currentUser.id);
+  // Driver marks DELIVERED — customer confirms delivered→done.
+  // Driver can no longer set done directly (trust hole).
+  const { error } = await sb.from("orders").update({ status: "delivered" }).eq("id", orderId).eq("driver_id", currentUser.id).eq("status", "delivering");
   if (error) toast("⚠️ " + error.message);
   else drawDriverTab(1);
 }
@@ -3388,7 +3483,7 @@ async function importSamples() {
         name_zh: data.name_zh, name_my: data.name_my, name_en: data.name_en,
         owner_name: data.ownerName, address_zh: data.address_zh, address_my: data.address_my,
         phone: data.phone, category: data.category, emoji: data.emoji,
-        sample: true, owner_id: currentUser.id
+        sample: true, owner_id: currentUser.id, approved: true
       }).select("id").single();
       if (sErr) throw sErr;
       const rows = menu.map(m => ({
