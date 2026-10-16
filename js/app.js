@@ -593,20 +593,14 @@ async function pollConfirm() {
   } catch (e) {}
 }
 /* Logged in but no profile row: user fills their own info. */
-let _cpRole = "customer";
-function setCpRole(r) { _cpRole = r; showCompleteProfile(); }
 function showCompleteProfile() {
   const app = document.getElementById("app");
   app.innerHTML =
     '<div class="card"><h2>👤 ' + esc(t("completeProfile")) + '</h2>' +
     '<p class="muted" style="font-size:13px;margin:0 0 14px">' + esc(t("completeProfileHint")) + '</p>' +
-    '<div class="field"><div class="role-pick">' +
-    '<div class="tab' + (_cpRole === "customer" ? " active" : "") + '" onclick="setCpRole(\'customer\')">' + esc(t("iAmCustomer")) + '</div>' +
-    '<div class="tab' + (_cpRole === "vendor" ? " active" : "") + '" onclick="setCpRole(\'vendor\')">' + esc(t("iAmVendor")) + '</div>' +
-    '<div class="tab' + (_cpRole === "driver" ? " active" : "") + '" onclick="setCpRole(\'driver\')">' + esc(t("iAmDriver")) + '</div>' +
-    '</div></div>' +
     '<div class="field"><label>' + esc(t("yourName")) + '</label><input id="cp-name"></div>' +
     '<div class="field"><label>' + esc(t("phone")) + '</label><input id="cp-phone" placeholder="09xxxxxxxxx"></div>' +
+    '<div class="field"><label>' + esc(t("address")) + ' (' + esc(t("optional")) + ')</label><input id="cp-addr"></div>' +
     '<button class="btn" style="width:100%" onclick="submitCompleteProfile()">' + esc(t("save")) + '</button>' +
     '</div>';
   window.scrollTo(0, 0);
@@ -614,7 +608,10 @@ function showCompleteProfile() {
 async function submitCompleteProfile() {
   const name = (document.getElementById("cp-name").value || "").trim();
   const phone = normPhone(document.getElementById("cp-phone").value || "");
-  const role = _cpRole || "customer";
+  const addr = (document.getElementById("cp-addr").value || "").trim();
+  // Role was already chosen at registration; default customer here.
+  let role = "customer";
+  try { role = localStorage.getItem("mf_oauth_role") || "customer"; } catch (e) {}
   if (!name) { toast("⚠️ " + t("enterName")); return; }
   if (!phone) { toast("⚠️ " + t("enterPhone")); return; }
   const { error } = await sb.from("users").insert({
@@ -623,6 +620,7 @@ async function submitCompleteProfile() {
     email: currentUser.email || "", phone: phone
   });
   if (error) { toast("⚠️ " + error.message); return; }
+  if (addr) { try { setPref("addr", addr); } catch (e) {} }
   window._needsProfile = false;
   const r = await sb.from("users").select("*").eq("id", currentUser.id).single();
   if (!r.error && r.data) userDoc = mapUser(r.data);

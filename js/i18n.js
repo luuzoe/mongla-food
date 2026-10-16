@@ -121,6 +121,7 @@ const STR = {
   shopName:           { zh: "店铺名称", my: "ဆိုင်နာမည်", en: "Shop name" },
   ownerName:          { zh: "店主姓名", my: "ဆိုင်ရှင်နာမည်", en: "Owner name" },
   address:            { zh: "地址", my: "လိပ်စာ", en: "Address" },
+  optional:           { zh: "可选", my: "မဖြည့်လဲရ", en: "Optional" },
   phone:              { zh: "电话", my: "ဖုန်းနံပါတ်", en: "Phone" },
   callNow:            { zh: "打电话", my: "ဖုန်းခေါ်ရန်", en: "Call now" },
   menu:               { zh: "菜单", my: "မီနူး", en: "Menu" },
