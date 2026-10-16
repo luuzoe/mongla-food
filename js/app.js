@@ -1562,9 +1562,10 @@ async function placeShopOrder(shopId, items, delivery) {
     customer_id: currentUser.id,
     vendor_id: s.ownerUid,
     // denormalized so the vendor can show who ordered without reading
-    // the customer's private user row (RLS forbids it)
-    customer_name: (userDoc && userDoc.name) || currentUser.email,
-    customer_email: currentUser.email || "",
+    // the customer's private user row (RLS forbids it).
+    // NEVER fall back to email for the name — vendor must not see it.
+    customer_name: (userDoc && userDoc.name) || delivery.phone || t("customer"),
+    customer_email: "",
     items: items, total_yuan: total,
     delivery_address: delivery.address, customer_phone: delivery.phone,
     note: delivery.note || null, delivery_fee_yuan: fee,
@@ -2636,7 +2637,7 @@ async function drawVendorOrders(skipChannel) {
     }
   } catch (e) {}
   box.innerHTML = salesHtml + list.map(o =>
-    orderCard(o, { name_zh: t("orderFrom") + ": " + (o.customerName || "?") + (o.customerEmail ? " (" + o.customerEmail + ")" : ""), name_my: "", name_en: "" }, true)
+    orderCard(o, { name_zh: t("orderFrom") + ": " + (o.customerName || "?"), name_my: "", name_en: "" }, true)
   ).join("");
   box.querySelectorAll("[data-varch]").forEach(b => b.onclick = () => archiveVendorOrder(b.getAttribute("data-varch")));
 }
