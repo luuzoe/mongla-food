@@ -2030,21 +2030,12 @@ async function viewOrders() {
 }
 async function toggleOrderChat(orderId) {
   if (needLogin()) return;
-  const box = document.getElementById("oc-" + orderId);
-  if (!box) return;
-  if (box.dataset.open === "1") { box.innerHTML = ""; box.dataset.open = ""; window._openOrderChat = null; return; }
   const info = (window._orderChatInfo || {})[orderId];
   if (!info) return;
-  box.dataset.open = "1";
-  box.innerHTML = '<div class="card"><div class="center muted">\u2026</div></div>';
   try {
     const convId = await ensureConversation(info.shopId, info.vendorUid);
-    window._openOrderChat = convId;
-    if (window._unreadByConv) window._unreadByConv[convId] = 0;
-    const badge = document.querySelector('[data-chatbtn="' + orderId + '"] .ubadge');
-    if (badge) badge.remove();
-    mountChat(box, convId, info.title);
-  } catch (e) { box.innerHTML = '<div class="card">\u26A0\uFE0F ' + esc(e.message || e) + "</div>"; }
+    location.hash = "#/chat/" + convId;
+  } catch (e) { toast("⚠️ " + (e.message || e)); }
 }
 async function confirmReceived(orderId) {
   if (!(await confirmDlg(t("confirmReceived") + "?"))) return;
