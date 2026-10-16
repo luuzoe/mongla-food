@@ -2062,7 +2062,7 @@ function orderCard(o, shop, isVendor) {
       btns += '<button class="btn small gray" data-varch="' + o.id + '">' + esc(t("del")) + "</button>";
   } else {
     const uc = ((window._unreadByConv || {})[o.convId] || 0);
-    btns += '<button class="btn small" data-chatbtn="' + o.id + '" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + (uc ? ' <span class="ubadge">' + uc + "</span>" : "") + "</button>";
+    btns += '<button class="btn small" data-chatbtn="' + o.id + '" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + (uc ? ' <span class="ubadge" translate="no">' + Number(uc) + "</span>" : "") + "</button>";
     if (o.status === "pending" || o.status === "accepted")
       btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
     btns += '<button class="btn small" data-reorder="' + o.id + '">🔁 ' + esc(t("reorder")) + "</button>";
@@ -2480,7 +2480,7 @@ async function viewChats() {
             : '<div class="shop-emoji">' + (isV ? "👤" : "🏪") + "</div>");
         return '<div class="card shop-card" data-conv="' + c.id + '" data-nm="' + esc(nm) + '">' + avatar +
           '<div style="flex:1"><h3>' + esc(nm) +
-          (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
+          (unread[c.id] ? ' <span class="ubadge" translate="no">' + Number(unread[c.id]) + "</span>" : "") + "</h3>" +
           '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>";
       }).join("");
       listBox.querySelectorAll("[data-conv]").forEach(el => {
@@ -2593,7 +2593,7 @@ async function renderChatList() {
       ? '<img class="shop-thumb" src="' + esc(c.customerAvatarUrl) + '" alt="" loading="lazy">'
       : '<div class="shop-emoji">👤</div>') +
     '<div style="flex:1"><h3>' + esc(c.customerName || "\u2026") +
-    (unread[c.id] ? ' <span class="ubadge">' + unread[c.id] + "</span>" : "") + "</h3>" +
+    (unread[c.id] ? ' <span class="ubadge" translate="no">' + Number(unread[c.id]) + "</span>" : "") + "</h3>" +
     '<div class="meta">' + esc(fmtTime(c.lastMessageAt)) + "</div></div></div>").join("");
   listBox.querySelectorAll("[data-conv]").forEach(el => {
     el.onclick = () => {
