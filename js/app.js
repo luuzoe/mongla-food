@@ -2433,8 +2433,22 @@ async function viewChats() {
     const listBox = document.getElementById("chats-list");
     if (!listBox) return;
     try {
-      const { data, error } = await sb.from("conversations").select("*")
-        .eq(col, currentUser.id).order("last_message_at", { ascending: false });
+      let data, error;
+      if (isV) {
+        // Vendor: show conversations for ALL shops they own, regardless of
+        // vendor_id (orphaned/wrong vendor_id conversations stay visible).
+        const { data: myShops } = await sb.from("shops").select("id").eq("owner_id", currentUser.id);
+        const sids = (myShops || []).map(s => s.id);
+        if (!sids.length) { data = []; }
+        else {
+          const r = await sb.from("conversations").select("*").in("shop_id", sids).order("last_message_at", { ascending: false });
+          data = r.data; error = r.error;
+        }
+      } else {
+        const r = await sb.from("conversations").select("*")
+          .eq(col, currentUser.id).order("last_message_at", { ascending: false });
+        data = r.data; error = r.error;
+      }
       if (error) throw error;
       const list = (data || []).map(mapConv);
       let names = {};
