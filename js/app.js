@@ -1598,8 +1598,10 @@ async function ensureConversation(shopId, vendorUid) {
   const { data: existing } = await sb.from("conversations")
     .select("id,vendor_id").eq("shop_id", shopId).eq("customer_id", currentUser.id).single();
   if (existing) {
-    // Heal orphaned conversations created with missing vendor_id.
-    if (!existing.vendor_id && vendorUid) {
+    // Always sync vendor_id with the shop's current owner — heals both
+    // orphaned (null) and wrong-vendor conversations (RLS hides them
+    // from the vendor otherwise: SELECT needs auth.uid() = vendor_id).
+    if (vendorUid && existing.vendor_id !== vendorUid) {
       try { await sb.from("conversations").update({ vendor_id: vendorUid }).eq("id", existing.id); } catch (e) {}
     }
     return existing.id;
