@@ -358,7 +358,7 @@ async function handleSession(session) {
             }
           }
         } catch (e) {}
-        try { oauthRole = (pendingReg && pendingReg.role) || localStorage.getItem("mf_oauth_role") || "customer"; localStorage.removeItem("mf_oauth_role"); } catch (e) {}
+        try { oauthRole = (pendingReg && pendingReg.role) || localStorage.getItem("mf_oauth_role") || localStorage.getItem("mf_reg_role") || "customer"; localStorage.removeItem("mf_oauth_role"); localStorage.removeItem("mf_reg_role"); } catch (e) {}
         const regFirst = (pendingReg && pendingReg.first_name) || "";
         const regPhone = (pendingReg && pendingReg.phone) || "";
         // No stashed registration data (e.g. confirmed from another browser):
@@ -631,7 +631,7 @@ async function submitCompleteProfile() {
   const addr = (document.getElementById("cp-addr").value || "").trim();
   // Role was already chosen at registration; default customer here.
   let role = "customer";
-  try { role = localStorage.getItem("mf_oauth_role") || "customer"; } catch (e) {}
+  try { role = localStorage.getItem("mf_reg_role") || localStorage.getItem("mf_oauth_role") || "customer"; } catch (e) {}
   if (!name) { toast("⚠️ " + t("enterName")); return; }
   if (!phone) { toast("⚠️ " + t("enterPhone")); return; }
   // Phone uniqueness check (same as registration).
@@ -652,7 +652,7 @@ async function submitCompleteProfile() {
     }
     toast("⚠️ " + error.message); return;
   }
-  try { localStorage.removeItem("mf_oauth_role"); } catch (e) {}
+  try { localStorage.removeItem("mf_oauth_role"); localStorage.removeItem("mf_reg_role"); } catch (e) {}
   if (addr) { try { setPref("addr", addr); } catch (e) {} }
   window._needsProfile = false;
   const r = await sb.from("users").select("*").eq("id", currentUser.id).single();
@@ -762,6 +762,9 @@ async function doCreateAccount() {
       }
       phone = phoneNorm;
     }
+    // v153: save role separately — mf_pending_reg can be lost (other browser,
+    // cleared storage), but the vendor choice must survive for complete-profile.
+    try { localStorage.setItem("mf_reg_role", regRole || "customer"); } catch (e) {}
     const { data, error } = await sb.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: "https://luuzoe.github.io/mongla-food/" } });
     if (error) throw error;
     let user = data.user;
@@ -3388,8 +3391,14 @@ async function viewAdmin() {
       list.map(u => "<tr><td>" + esc(u.name || "") + "</td><td>" + esc(u.email || "") + "</td><td>" + esc(u.role || "") +
         (u.banned ? ' <span class="badge" style="background:#f8d7da;color:#721c24">' + esc(t("banned")) + "</span>" : "") + "</td>" +
         '<td><button class="btn small ' + (u.banned ? "" : "gray") + '" onclick="adminBanUser(\'' + u.id + "'," + (!u.banned) + ')">' + esc(t(u.banned ? "unban" : "ban")) + "</button> " +
+        '<select class="role-sel" data-uid="' + u.id + '" style="font-size:12px;padding:4px;border-radius:8px;border:1px solid var(--line)">' +
+        ['customer','vendor','driver','admin'].map(r => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
+        '</select> ' +
         '<button class="btn small" style="background:#dc3545;color:#fff" onclick="adminDeleteUser(\'' + u.id + "')\">🗑️</button></td></tr>").join("") +
       "</table></div>";
+    box.querySelectorAll(".role-sel").forEach(sel => {
+      sel.onchange = () => adminChangeRole(sel.getAttribute("data-uid"), sel.value);
+    });
   } else if (adminTab === "reports") {
     const { data, error } = await sb.from("reports").select("*").order("created_at", { ascending: false }).limit(100);
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
@@ -3460,6 +3469,12 @@ function setAdminTab(tab) { adminTab = tab; viewAdmin(); }
 async function adminApproveShop(id) {
   const { error } = await sb.from("shops").update({ approved: true }).eq("id", id);
   if (error) toast("\u26A0\uFE0F " + error.message); else { refreshPendingBadge().then(() => syncPendingBadge()); viewAdmin(); }
+}
+async function adminChangeRole(uid, role) {
+  if (!["customer", "vendor", "driver", "admin"].includes(role)) return;
+  const { error } = await sb.from("users").update({ role: role }).eq("id", uid);
+  if (error) toast("⚠️ " + error.message);
+  else { toast("✅ " + t("done")); viewAdmin(); }
 }
 async function adminBanUser(uid, ban) {
   if (ban && !(await confirmDlg(t("ban") + "?"))) return;
