@@ -141,10 +141,15 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 90px; }
   padding-bottom: env(safe-area-inset-bottom);
 }
 .tapbar button {
-  flex: 1 1 0; min-width: 0; background: none; border: none; padding: 8px 4px 6px;
+  flex: 1 1 0; min-width: 0; background: none; border: none; padding: 8px 2px 6px;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   font-size: 11px; color: #888; cursor: pointer; position: relative;
   font-family: inherit;
+}
+/* v154: 5 Burmese tab labels must fit on narrow phones */
+@media (max-width: 420px) {
+  .tapbar button { font-size: 10px; padding: 8px 1px 6px; }
+  .tapbar button .ic svg { width: 22px; height: 22px; }
 }
 .tapbar button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tapbar button .ic { line-height: 1; display: flex; align-items: center; justify-content: center; }

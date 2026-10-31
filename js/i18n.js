@@ -184,6 +184,7 @@ const STR = {
   clearChatConfirm:   { zh: "确定删除此聊天吗？", my: "ဒီစကားပြောခန်းကို ဖျက်မှာသေချာလား။", en: "Delete this chat?" },
   chatCleared:        { zh: "已删除聊天", my: "ဖျက်ပြီးပြီ", en: "Chat deleted" },
   noChats:            { zh: "暂无聊天", my: "စကားပြောခန်းမရှိသေးပါ", en: "No chats yet" },
+  noUsers:            { zh: "暂无用户", my: "အသုံးပြုသူ မရှိသေးပါ", en: "No users yet" },
   allShops:           { zh: "所有店铺", my: "ဆိုင်အားလုံး", en: "All shops" },
   allUsers:           { zh: "所有用户", my: "အသုံးပြုသူအားလုံး", en: "All users" },
   allOrders:          { zh: "所有订单", my: "အမှာစာအားလုံး", en: "All orders" },

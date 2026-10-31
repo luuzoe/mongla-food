@@ -3386,16 +3386,20 @@ async function viewAdmin() {
     const { data, error } = await sb.from("users").select("*");
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
     const list = (data || []).map(mapUser);
-    box.innerHTML = '<div class="card"><table class="list"><tr><th>' + esc(t("yourName")) +
-      "</th><th>" + esc(t("email")) + "</th><th>role</th><th></th></tr>" +
-      list.map(u => "<tr><td>" + esc(u.name || "") + "</td><td>" + esc(u.email || "") + "</td><td>" + esc(u.role || "") +
-        (u.banned ? ' <span class="badge" style="background:#f8d7da;color:#721c24">' + esc(t("banned")) + "</span>" : "") + "</td>" +
-        '<td><button class="btn small ' + (u.banned ? "" : "gray") + '" onclick="adminBanUser(\'' + u.id + "'," + (!u.banned) + ')">' + esc(t(u.banned ? "unban" : "ban")) + "</button> " +
-        '<select class="role-sel" data-uid="' + u.id + '" style="font-size:12px;padding:4px;border-radius:8px;border:1px solid var(--line)">' +
-        ['customer','vendor','driver','admin'].map(r => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
-        '</select> ' +
-        '<button class="btn small" style="background:#dc3545;color:#fff" onclick="adminDeleteUser(\'' + u.id + "')\">🗑️</button></td></tr>").join("") +
-      "</table></div>";
+    // v154: cards instead of table — tables overflow on phone screens.
+    box.innerHTML = list.map(u =>
+      '<div class="card" style="padding:10px 12px">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px"><b style="min-width:0;overflow:hidden;text-overflow:ellipsis">' + esc(u.name || "") + '</b>' +
+      '<span class="status ' + (u.role || "") + '">' + esc(u.role || "") + "</span></div>" +
+      '<div class="muted" style="font-size:12px;word-break:break-all">' + esc(u.email || "") + (u.phone ? " · " + esc(u.phone) : "") + "</div>" +
+      (u.banned ? '<div><span class="badge" style="background:#f8d7da;color:#721c24">' + esc(t("banned")) + "</span></div>" : "") +
+      '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">' +
+      '<select class="role-sel" data-uid="' + u.id + '" style="font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--line)">' +
+      ['customer','vendor','driver','admin'].map(r => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
+      '</select>' +
+      '<button class="btn small ' + (u.banned ? "" : "gray") + '" onclick="adminBanUser(\'' + u.id + "'," + (!u.banned) + ')">' + esc(t(u.banned ? "unban" : "ban")) + "</button>" +
+      '<button class="btn small" style="background:#dc3545;color:#fff" onclick="adminDeleteUser(\'' + u.id + "')\">🗑️</button>" +
+      "</div></div>").join("") || '<div class="card center muted">' + esc(t("noUsers")) + "</div>";
     box.querySelectorAll(".role-sel").forEach(sel => {
       sel.onchange = () => adminChangeRole(sel.getAttribute("data-uid"), sel.value);
     });
