@@ -399,3 +399,10 @@ main.page-enter { animation: pageIn .28s ease; }
 .timeline .tl-step.now { color: var(--pink); font-weight: 700; }
 .timeline .tl-line { flex: 1; height: 2px; background: #eee; margin-bottom: 18px; }
 .timeline .tl-line.on { background: var(--green); }
+
+/* v155: admin tabs scroll horizontally — full Burmese labels, never truncated */
+.admin-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 6px; scrollbar-width: none; }
+.admin-tabs::-webkit-scrollbar { display: none; }
+.admin-tabs .tab { flex-shrink: 0; white-space: nowrap; overflow: visible; text-overflow: clip; }
+/* v155: tap bar labels — allow 2 lines so long Burmese labels fit */
+.tapbar button span { white-space: normal; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

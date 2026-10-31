@@ -3357,7 +3357,7 @@ async function viewAdmin() {
   }
   app.innerHTML = "<h2>🛠 " + esc(t("adminPanel")) + "</h2>" +
     '<div class="notice">' + esc(t("makeAdminTip")) + "</div>" +
-    '<div class="tabs">' +
+    '<div class="tabs admin-tabs">' +
     '<div class="tab' + (adminTab === "shops" ? " active" : "") + '" onclick="setAdminTab(\'shops\')"><span class="tic">' + ICONS.store + "</span> " + esc(t("allShops")) + "</div>" +
     '<div class="tab' + (adminTab === "users" ? " active" : "") + '" onclick="setAdminTab(\'users\')"><span class="tic">' + ICONS.user + "</span> " + esc(t("allUsers")) + "</div>" +
     '<div class="tab' + (adminTab === "orders" ? " active" : "") + '" onclick="setAdminTab(\'orders\')"><span class="tic">' + ICONS.box + "</span> " + esc(t("allOrders")) + "</div>" +
