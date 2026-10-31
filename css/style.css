@@ -351,3 +351,46 @@ table.list td, table.list th { border-bottom: 1px solid var(--line); padding: 8p
 .order-card2.open .oc-details{display:block}
 .order-card2 .oc-chev{color:var(--muted);font-size:12px;transition:transform .2s;flex-shrink:0}
 .order-card2.open .oc-chev{transform:rotate(180deg)}
+
+/* ===== UI SMOOTH v150: animations, skeletons, touch, promo, timeline ===== */
+html { scroll-behavior: smooth; }
+img { content-visibility: auto; }
+/* 4. Page enter: fade + slight slide on view switch */
+@keyframes pageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+main.page-enter { animation: pageIn .28s ease; }
+/* 5. Tap feedback on cards/chips/tabs */
+.card, .shop-card, .post-card, .chip, .tab, .menu-item { transition: transform .12s ease, box-shadow .15s ease; }
+.card:active, .shop-card:active, .post-card:active { transform: scale(.98); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.chip:active, .tab:active { transform: scale(.95); }
+/* 6. Cart bar slides up when it appears */
+@keyframes cartUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.cartbar { animation: cartUp .25s ease; }
+/* 2. Skeleton loading shimmer */
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.skel { border-radius: 14px; margin-bottom: 12px; height: 120px;
+  background: linear-gradient(90deg, #f0e0e4 25%, #faf0f2 50%, #f0e0e4 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+/* 11. Bigger touch targets (44px min) */
+.btn { min-height: 44px; }
+.chip, .tab { min-height: 40px; display: inline-flex; align-items: center; }
+/* 12. Sticky search toolbar under the pink header */
+.toolbar { position: sticky; top: 52px; z-index: 40; background: var(--bg); padding: 8px 0; }
+/* 10. Bigger food photos: square, full-bleed */
+.post-photo { aspect-ratio: 1/1; }
+/* 9. Promo banner */
+.promo-banner { background: linear-gradient(135deg, #e91e63, #ff7043); color: #fff;
+  border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(233,30,99,.3); }
+.promo-banner b { font-size: 16px; display: block; }
+.promo-banner span { font-size: 13px; opacity: .95; }
+/* 7. Order tracking timeline */
+.timeline { display: flex; align-items: center; gap: 0; margin: 10px 0 4px; }
+.timeline .tl-step { flex: 1; text-align: center; font-size: 11px; color: var(--muted); }
+.timeline .tl-dot { width: 22px; height: 22px; border-radius: 50%; margin: 0 auto 3px;
+  background: #eee; color: #999; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.timeline .tl-step.done .tl-dot { background: var(--green); color: #fff; }
+.timeline .tl-step.done { color: var(--green); font-weight: 600; }
+.timeline .tl-step.now .tl-dot { background: var(--pink); color: #fff; box-shadow: 0 0 0 4px #fce4ec; }
+.timeline .tl-step.now { color: var(--pink); font-weight: 700; }
+.timeline .tl-line { flex: 1; height: 2px; background: #eee; margin-bottom: 18px; }
+.timeline .tl-line.on { background: var(--green); }

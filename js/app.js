@@ -456,6 +456,15 @@ function renderDrawer() {
 function renderAll() {
   stopListeners();
   renderHeader();
+  // v150: smooth page-enter animation on view switch.
+  try {
+    const h0 = location.hash || "#/";
+    if (window._lastHash !== h0) {
+      window._lastHash = h0;
+      const mn = document.querySelector("main");
+      if (mn) { mn.classList.remove("page-enter"); void mn.offsetWidth; mn.classList.add("page-enter"); }
+    }
+  } catch (e) {}
   // Logged in but no profile row: user fills their own info (never auto-create empty).
   if (currentUser && window._needsProfile && !userDoc) return showCompleteProfile();
   const h = location.hash || "#/";
@@ -945,6 +954,8 @@ function viewContact() {
 async function viewHome() {
   const app = document.getElementById("app");
   app.innerHTML =
+    '<div class="promo-banner" onclick="location.hash=\'#/\'"><b>🎉 ' + esc(t("promoTitle")) + '</b>' +
+    '<span>' + esc(t("promoSub")) + '</span></div>' +
     '<div class="card center"><h2 style="margin:0">🍜 ' + esc(t("appName")) + "</h2>" +
     '<div class="muted">' + esc(t("tagline")) + "</div></div>" +
     '<div class="toolbar"><input type="search" id="q" placeholder="' + esc(t("searchDishes")) +
@@ -1092,13 +1103,16 @@ function postCardHTML(p, showShop) {
     shopLabel +
     '<div class="post-foot">' + postFootHTML(key, p, inCart) + "</div>" +
     '<div class="post-time">🏷️ ' + esc(catName(p.category || "foods")) + " · " + esc(fmtTime(p.createdAt)) +
-    (p.deliveryFee ? ' · 🛵 ' + esc(t("deliveryFee")) + ' ¥' + p.deliveryFee : "") + "</div>" +
+    (p.deliveryFee ? ' · 🛵 ' + esc(t("deliveryFee")) + ' ¥' + p.deliveryFee : "") +
+    ' · ⏱️ ' + esc(t("eta30")) + "</div>" +
     "</div></div>";
 }
 /* Homepage feed: newest posts across ALL shops (after the product grid). */
 async function drawFeed() {
   const box = document.getElementById("feedSection");
   if (!box) return;
+  // v150: skeleton shimmer while posts load (feels instant, not blank).
+  box.innerHTML = '<div class="skel"></div><div class="skel"></div>';
   try {
     const { data, error } = await sb.from("posts")
       .select("*, shops(name_zh, name_my, name_en, approved, delivery_fee_yuan)")
@@ -2104,6 +2118,26 @@ async function confirmReceived(orderId) {
   if (r.error) toast("\u26A0\uFE0F " + r.error.message); else viewOrders();
 }
 
+
+/* v150: order tracking timeline — pending -> accepted -> ready -> delivering -> delivered -> done */
+function orderTimeline(status) {
+  const steps = [
+    { k: "pending", icon: "📝" }, { k: "accepted", icon: "✅" },
+    { k: "ready", icon: "📦" }, { k: "delivering", icon: "🛵" },
+    { k: "delivered", icon: "🎁" }, { k: "done", icon: "🏁" }
+  ];
+  if (status === "cancelled") return '<div class="timeline"><div class="tl-step done"><div class="tl-dot">❌</div>' + esc(t("status_cancelled")) + '</div></div>';
+  const idx = steps.findIndex(s => s.k === status);
+  const cur = idx < 0 ? 0 : idx;
+  let html = '<div class="timeline">';
+  steps.forEach((s, i) => {
+    if (i > 0) html += '<div class="tl-line' + (i <= cur ? ' on' : '') + '"></div>';
+    const cls = i < cur ? "done" : (i === cur ? "now" : "");
+    html += '<div class="tl-step ' + cls + '"><div class="tl-dot">' + (i < cur ? "✓" : s.icon) + '</div>' + esc(t("status_" + s.k)) + '</div>';
+  });
+  return html + '</div>';
+}
+
 function orderCard(o, shop, isVendor) {
   const items = (o.items || []).map(it =>
     "<div>" + esc(itemName(it)) +
@@ -2140,6 +2174,7 @@ function orderCard(o, shop, isVendor) {
     '<span class="status ' + o.status + '">' + esc(t("status_" + o.status)) + "</span>" +
     '<span class="oc-chev">\u25BC</span></div>' +
     '<div class="oc-details">' +
+    orderTimeline(o.status) +
     '<div style="margin:6px 0">' + items + "</div>" +
     ((o.deliveryAddress || o.customerPhone)
       ? '<div class="delivery-info">📍 ' + esc(o.deliveryAddress || "") +
