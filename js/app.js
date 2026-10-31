@@ -953,11 +953,10 @@ function viewContact() {
 /* ---------- home: ONE BIG UNIFIED MENU (all dishes, all shops mixed) ---------- */
 async function viewHome() {
   const app = document.getElementById("app");
+  // v151: header already shows the app name — no duplicate title card.
   app.innerHTML =
-    '<div class="promo-banner" onclick="location.hash=\'#/\'"><b>🎉 ' + esc(t("promoTitle")) + '</b>' +
+    '<div class="promo-banner" onclick="location.hash=\'#/\'"><b>🔥 ' + esc(t("promoTitle")) + '</b>' +
     '<span>' + esc(t("promoSub")) + '</span></div>' +
-    '<div class="card center"><h2 style="margin:0">🍜 ' + esc(t("appName")) + "</h2>" +
-    '<div class="muted">' + esc(t("tagline")) + "</div></div>" +
     '<div class="toolbar"><input type="search" id="q" placeholder="' + esc(t("searchDishes")) +
       '" value="' + esc(homeFilter.q) + '"></div>' +
     '<div class="chips" id="chips"></div>' +
