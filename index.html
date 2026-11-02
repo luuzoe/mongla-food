@@ -4,10 +4,15 @@
 <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e91e63">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>勐拉外卖 · မိုင်းလား အစားအသောက်ပို့ဆောင်ရေး</title>
-<link rel="stylesheet" href="css/style.css?v=156">
+<link rel="stylesheet" href="css/style.css?v=157">
 <!-- Supabase (pinned UMD build, no build step needed) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
 </head>
@@ -30,9 +35,16 @@
 <main id="app"><div class="center muted" style="padding:40px 0">…</div></main>
 <div id="cartbar"></div>
 
-<script src="js/supabase-client.js?v=156"></script>
-<script src="js/i18n.js?v=156"></script>
-<script src="js/seed.js?v=156"></script>
-<script src="js/app.js?v=156"></script>
+<script src="js/supabase-client.js?v=157"></script>
+<script src="js/i18n.js?v=157"></script>
+<script src="js/seed.js?v=157"></script>
+<script src="js/app.js?v=157"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
 </body>
 </html>
