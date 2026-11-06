@@ -260,6 +260,47 @@ function cartTotal() {
   return Object.values(cart.items).reduce((a, it) => a + it.qty * it.price, 0);
 }
 
+/* v160: Android back button — double-back to exit on home, overlays close first.
+   A PWA launches with ONE history entry, so a back press on home exits at once
+   without any event. A guard entry makes the first back interceptable. */
+function armHomeGuard() {
+  const h = location.hash || "#/";
+  if ((h === "#/" || h === "") && !window._guardLive) {
+    try { history.pushState({ g: 1 }, ""); window._guardLive = true; } catch (e) {}
+  }
+}
+function onBackButton(e) {
+  // Drawer / lightbox / sheet open: close it instead of navigating away.
+  const drawer = document.getElementById("drawer");
+  if (drawer && drawer.classList.contains("open")) {
+    closeDrawer();
+    // If the pop consumed the guard (same URL), re-arm it.
+    if ((location.hash || "#/") === (window._lastSeenHash || "#/")) window._guardLive = false;
+    armHomeGuard();
+    return;
+  }
+  if (document.getElementById("lightbox")) {
+    closeLightbox();
+    if ((location.hash || "#/") === (window._lastSeenHash || "#/")) window._guardLive = false;
+    armHomeGuard();
+    return;
+  }
+  const sheet = document.querySelector(".modal-ov");
+  if (sheet) {
+    sheet.remove();
+    if ((location.hash || "#/") === (window._lastSeenHash || "#/")) window._guardLive = false;
+    armHomeGuard();
+    return;
+  }
+  const h = location.hash || "#/";
+  if (h !== "#/" && h !== "") return; // normal back on sub-pages
+  const st = (e && e.state) || {};
+  if (st.g) return; // landed ON the guard entry (came back from a sub-page) — still protected
+  if (!window._guardLive) return; // plain back-to-home, no guard involved
+  // Guard was just popped on home — warn once; the next back press exits.
+  window._guardLive = false;
+  toast("\uD83D\uDC4B " + t("pressAgainExit"));
+}
 /* ---------- boot ---------- */
 window.addEventListener("DOMContentLoaded", boot);
 function boot() {
@@ -280,6 +321,10 @@ function boot() {
     sb.auth.onAuthStateChange(async (_event, session) => { await handleSession(session); });
     sb.auth.getSession().then(async ({ data }) => { await handleSession(data.session); });
     window.addEventListener("hashchange", renderAll);
+    window.addEventListener("hashchange", () => { armHomeGuard(); window._lastSeenHash = location.hash || "#/"; });
+    window.addEventListener("popstate", onBackButton);
+    window._lastSeenHash = location.hash || "#/";
+    armHomeGuard(); // guard entry so the first back press on home warns instead of exiting
     // Safety net: if auth bootstrap stalls, show a message instead of hanging on "…".
     setTimeout(() => {
       const app = document.getElementById("app");

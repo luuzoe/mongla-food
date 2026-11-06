@@ -294,7 +294,8 @@ const STR = {
   statsShops:        { zh: "店铺", my: "ဆိုင်", en: "Shops" },
   statsUsers:        { zh: "用户", my: "အသုံးပြုသူ", en: "Users" },
   statsPending:      { zh: "待审核", my: "အတည်ပြုရန် ကျန်", en: "Pending" },
-  statsRefunds:      { zh: "退款申请", my: "ငွေပြန်တောင်းတာ", en: "Refund requests" }
+  statsRefunds:      { zh: "退款申请", my: "ငွေပြန်တောင်းတာ", en: "Refund requests" },
+  pressAgainExit:    { zh: "再按一次返回退出", my: "နောက်တခါ Back နှိပ်ရင် ထွက်မယ်", en: "Press back again to exit" }
 };
 
 let LANG = localStorage.getItem("ml_lang") || "zh";
