@@ -3629,6 +3629,7 @@ async function viewAdmin() {
     '<div class="tab' + (adminTab === "reports" ? " active" : "") + '" onclick="setAdminTab(\'reports\')"><span class="tic">' + ICONS.flag + "</span> " + esc(t("reports")) + "</div>" +
     '<div class="tab' + (adminTab === "drivers" ? " active" : "") + '" onclick="setAdminTab(\'drivers\')">🛵 ' + esc(t("pendingDrivers")) + "</div>" +
     '<div class="tab' + (adminTab === "posts" ? " active" : "") + '" onclick="setAdminTab(\'posts\')">📢 ' + esc(t("posts") || "Posts") + "</div>" +
+    '<div class="tab' + (adminTab === "coupons" ? " active" : "") + '" onclick="setAdminTab(\'coupons\')">🎟️ ' + esc(t("coupons")) + "</div>" +
     "</div><div id=\"atab\"></div>";
   loadAdminStats();
   const box = document.getElementById("atab");
@@ -3722,6 +3723,32 @@ async function viewAdmin() {
       '<button class="btn small" style="background:#dc3545;color:#fff" data-delpost="' + p.id + '">🗑️</button></div>').join("")
       : '<div class="card center muted">' + esc(t("noOrders")) + "</div>";
     box.querySelectorAll("[data-delpost]").forEach(b => b.onclick = () => adminDeletePost(b.getAttribute("data-delpost")));
+  } else if (adminTab === "coupons") {
+    const { data, error } = await sb.from("coupons").select("*").order("created_at", { ascending: false });
+    if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
+    const list = data || [];
+    box.innerHTML =
+      '<div class="card"><h3>🎟️ ' + esc(t("createCoupon")) + '</h3>' +
+      '<div class="field"><label>' + esc(t("couponCode")) + '</label><input id="cp-code" placeholder="WELCOME10" style="text-transform:uppercase"></div>' +
+      '<div class="field"><label>' + esc(t("discountType")) + '</label><select id="cp-type"><option value="percent">' + esc(t("percentOff")) + '</option><option value="fixed">' + esc(t("fixedOff")) + '</option></select></div>' +
+      '<div class="field"><label>' + esc(t("discountValue")) + '</label><input id="cp-value" type="number" min="1" placeholder="10"></div>' +
+      '<div class="field"><label>' + esc(t("minOrder")) + '</label><input id="cp-min" type="number" min="0" placeholder="0"></div>' +
+      '<div class="field"><label>' + esc(t("maxDiscount")) + '</label><input id="cp-max" type="number" min="0" placeholder="—"></div>' +
+      '<div class="field"><label>' + esc(t("expiresAt")) + '</label><input id="cp-exp" type="datetime-local"></div>' +
+      '<button class="btn" style="width:100%" onclick="adminCreateCoupon()">➕ ' + esc(t("createCoupon")) + '</button></div>' +
+      (list.length ? list.map(c =>
+        '<div class="card" style="padding:10px 12px">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(c.code) + '</b>' +
+        '<span class="badge" style="background:' + (c.active ? '#e8f5e9;color:#2e7d32' : '#ffebee;color:#c62828') + '">' + (c.active ? '✅' : '⏸️') + '</span></div>' +
+        '<div class="muted" style="font-size:12px">' +
+        (c.discount_type === "percent" ? esc(c.discount_value) + '% ' + esc(t("percentOff")) : money(c.discount_value) + ' ' + esc(t("fixedOff"))) +
+        (Number(c.min_order_yuan) > 0 ? ' · ' + esc(t("minOrder")) + ' ' + money(c.min_order_yuan) : '') +
+        (c.max_discount_yuan ? ' · ' + esc(t("maxDiscount")) + ' ' + money(c.max_discount_yuan) : '') +
+        (c.expires_at ? ' · ⏰ ' + esc(fmtTime(c.expires_at)) : '') + '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button class="btn small ' + (c.active ? 'gray' : 'green') + '" onclick="adminToggleCoupon(\'' + c.id + "'," + (!c.active) + ')">' + esc(t(c.active ? "deactivate" : "activate")) + '</button>' +
+        '<button class="btn small" style="background:#dc3545;color:#fff" onclick="adminDeleteCoupon(\'' + c.id + "')\">🗑️</button>" +
+        '</div></div>').join("") : '<div class="card center muted">' + esc(t("noCoupons")) + '</div>');
   } else {
     const { data, error } = await sb.from("orders").select("*").order("created_at", { ascending: false });
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
@@ -3735,6 +3762,35 @@ async function viewAdmin() {
 async function adminApproveDriver(uid, approve) {
   const { error } = await sb.from("users").update({ driver_approved: !!approve }).eq("id", uid);
   if (error) toast("⚠️ " + error.message); else { refreshPendingBadge().then(() => syncPendingBadge()); viewAdmin(); }
+}
+/* v161: admin coupon manager */
+async function adminCreateCoupon() {
+  const code = (document.getElementById("cp-code").value || "").trim().toUpperCase();
+  const type = (document.getElementById("cp-type").value || "percent");
+  const value = Number(document.getElementById("cp-value").value || 0);
+  const min = Number(document.getElementById("cp-min").value || 0);
+  const maxRaw = (document.getElementById("cp-max").value || "").trim();
+  const expRaw = (document.getElementById("cp-exp").value || "").trim();
+  if (!code || !(value > 0)) { toast("\u26A0\uFE0F " + t("fillCoupon")); return; }
+  try {
+    const { error } = await sb.from("coupons").insert({
+      code: code, discount_type: type, discount_value: value,
+      min_order_yuan: min, max_discount_yuan: maxRaw ? Number(maxRaw) : null,
+      active: true, expires_at: expRaw ? new Date(expRaw).toISOString() : null
+    });
+    if (error) throw error;
+    toast("\u2705 " + t("couponCreated"));
+    viewAdmin();
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+}
+async function adminToggleCoupon(id, active) {
+  const { error } = await sb.from("coupons").update({ active: !!active }).eq("id", id);
+  if (error) toast("\u26A0\uFE0F " + error.message); else viewAdmin();
+}
+async function adminDeleteCoupon(id) {
+  if (!(await confirmDlg(t("del") + "?"))) return;
+  const { error } = await sb.from("coupons").delete().eq("id", id);
+  if (error) toast("\u26A0\uFE0F " + error.message); else { toast("\u2705 " + t("couponDeleted")); viewAdmin(); }
 }
 function setAdminTab(tab) { adminTab = tab; viewAdmin(); }
 async function adminApproveShop(id) {

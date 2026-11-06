@@ -295,7 +295,22 @@ const STR = {
   statsUsers:        { zh: "用户", my: "အသုံးပြုသူ", en: "Users" },
   statsPending:      { zh: "待审核", my: "အတည်ပြုရန် ကျန်", en: "Pending" },
   statsRefunds:      { zh: "退款申请", my: "ငွေပြန်တောင်းတာ", en: "Refund requests" },
-  pressAgainExit:    { zh: "再按一次返回退出", my: "နောက်တခါ Back နှိပ်ရင် ထွက်မယ်", en: "Press back again to exit" }
+  pressAgainExit:    { zh: "再按一次返回退出", my: "နောက်တခါ Back နှိပ်ရင် ထွက်မယ်", en: "Press back again to exit" },
+  coupons:           { zh: "优惠券", my: "Coupon များ", en: "Coupons" },
+  createCoupon:      { zh: "新建优惠券", my: "Coupon အသစ် ဖန်တီး", en: "Create coupon" },
+  couponCreated:     { zh: "优惠券已创建", my: "Coupon ဖန်တီးပြီးပြီ", en: "Coupon created" },
+  couponDeleted:     { zh: "优惠券已删除", my: "Coupon ဖျက်ပြီးပြီ", en: "Coupon deleted" },
+  discountType:      { zh: "优惠类型", my: "လျှော့စျေး အမျိုးအစား", en: "Discount type" },
+  discountValue:     { zh: "优惠数值", my: "လျှော့စျေး ပမာဏ", en: "Discount value" },
+  minOrder:          { zh: "最低消费", my: "အနည်းဆုံး မှာရမယ့် ပမာဏ", en: "Minimum order" },
+  maxDiscount:       { zh: "最多优惠", my: "အများ ဆုံး လျှော့စျေး", en: "Maximum discount" },
+  expiresAt:         { zh: "过期时间（可选）", my: "သက်တမ်း ကုန်မယ့် အချိန် (မဖြည့်လဲ ရ)", en: "Expiry (optional)" },
+  percentOff:        { zh: "% 折扣", my: "% လျှော့", en: "% off" },
+  fixedOff:          { zh: "固定减免", my: "ပုံသေ လျှော့", en: "fixed off" },
+  activate:          { zh: "启用", my: "ဖွင့်", en: "Activate" },
+  deactivate:        { zh: "停用", my: "ပိတ်", en: "Deactivate" },
+  noCoupons:         { zh: "暂无优惠券", my: "Coupon မရှိသေးပါ", en: "No coupons yet" },
+  fillCoupon:        { zh: "请填写优惠码和优惠数值", my: "ကုဒ် နဲ့ လျှော့စျေး ဖြည့်ပါ", en: "Fill in the code and discount value" }
 };
 
 let LANG = localStorage.getItem("ml_lang") || "zh";
