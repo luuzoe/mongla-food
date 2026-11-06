@@ -471,3 +471,14 @@ main.page-enter { animation: pageIn .28s ease; }
   border-top: 1px solid rgba(255,255,255,.6);
   box-shadow: 0 -2px 16px rgba(0,0,0,.06);
 }
+
+/* v158: photo lightbox */
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 999; display: flex; align-items: center; justify-content: center; padding: 12px; }
+.lightbox img { max-width: 94vw; max-height: 92vh; border-radius: 12px; object-fit: contain; }
+/* v158: admin stat cards */
+.stat-card { flex: 0 0 auto; min-width: 92px; background: rgba(255,255,255,.7); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.6); border-radius: 14px; padding: 10px 12px; box-shadow: 0 2px 10px rgba(0,0,0,.07); }
+.stat-num { font-size: 20px; font-weight: 800; color: var(--pink-dark); }
+.stat-lbl { font-size: 11px; color: #777; margin-top: 2px; }
+/* v158: pull-to-refresh indicator */
+.ptr-ind { position: fixed; top: -44px; left: 50%; transform: translateX(-50%); z-index: 200; background: rgba(255,255,255,.85); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(233,30,99,.3); color: var(--pink-dark); font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0,0,0,.12); transition: top .2s; }
+.ptr-ind.show { top: 60px; }

@@ -69,7 +69,10 @@ function mapOrder(r) {
     convId: r.conversation_id, customerName: r.customer_name,
     customerEmail: r.customer_email, createdAt: r.created_at, payMethod: r.payment_method || "cod", payTxn: r.payment_txn || "",
     driverId: r.driver_id || null, driverArchived: r.driver_archived === true,
-    vendorArchived: r.vendor_archived === true
+    vendorArchived: r.vendor_archived === true,
+    cancelReason: r.cancel_reason || "", refundStatus: r.refund_status || "none",
+    refundReason: r.refund_reason || "", couponCode: r.coupon_code || "",
+    discount: Number(r.discount_yuan) || 0
   };
 }
 function mapPost(r) {
@@ -267,6 +270,7 @@ function boot() {
     document.getElementById("drawerClose").onclick = () => closeDrawer();
     document.getElementById("drawerOverlay").onclick = () => closeDrawer();
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+    try { initPullToRefresh(); } catch (e) {}
     if (!SUPABASE_CONFIG_OK) {
       document.getElementById("app").innerHTML =
         '<div class="notice">⚠️ ' + esc(t("setupNeeded")) + "<br><br>" +
@@ -1097,16 +1101,17 @@ function postCardHTML(p, showShop) {
     ? '<div class="post-shop" onclick="event.stopPropagation();location.hash=\'#/shop/' + p.shopId + "'\">🏪 " + esc(p.shopName) + "</div>" : "";
   const isNew = p.createdAt && (Date.now() - new Date(p.createdAt).getTime()) < 24 * 3600 * 1000;
   return '<div class="post-card" data-key="' + key + '"' + click + ">" +
-    '<div class="post-photo" style="position:relative">' + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy">' : "📢") +
+    '<div class="post-photo" style="position:relative">' + (p.photoUrl ? '<img src="' + esc(p.photoUrl) + '" alt="" loading="lazy" onclick="event.stopPropagation();openLightbox(\'' + esc(p.photoUrl) + '\')">' : "📢") +
     (isNew ? '<span style="position:absolute;top:6px;left:6px;background:#e91e63;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px">🆕 NEW</span>' : "") +
     '<button class="fav-star' + (isFav(key) ? ' on' : '') + '" onclick="event.stopPropagation();toggleFav(\'' + key + '\')">' + (isFav(key) ? '\u2605' : '\u2606') + '</button></div>' +
     '<div class="post-body">' +
     '<div class="post-text">' + esc(p.body) + "</div>" +
     shopLabel +
     '<div class="post-foot">' + postFootHTML(key, p, inCart) + "</div>" +
-    '<div class="post-time">🏷️ ' + esc(catName(p.category || "foods")) + " · " + esc(fmtTime(p.createdAt)) +
-    (p.deliveryFee ? ' · 🛵 ' + esc(t("deliveryFee")) + ' ¥' + p.deliveryFee : "") +
-    ' · ⏱️ ' + esc(t("eta30")) + "</div>" +
+    '<div class="post-time">🏷️ ' + esc(catName(p.category || "foods")) + " · " + esc(fmtTime(p.createdAt)) + "</div>" +
+    '<div class="post-time" style="font-size:11px">' +
+    (p.deliveryFee ? '🛵 ' + esc(t("deliveryFee")) + ' ¥' + p.deliveryFee + " · " : "") +
+    '⏱️ ' + esc(t("eta30")) + "</div>" +
     "</div></div>";
 }
 /* Homepage feed: newest posts across ALL shops (after the product grid). */
@@ -1147,7 +1152,12 @@ function renderFeedPosts() {
   });
   const favs = getFavs();
   list.sort((a, b) => ((favs.indexOf(b.shopId + "__post_" + b.id) >= 0) ? 1 : 0) - ((favs.indexOf(a.shopId + "__post_" + a.id) >= 0) ? 1 : 0));
-  if (!list.length) { box.innerHTML = ""; return; }
+  if (!list.length) {
+    box.innerHTML = q
+      ? '<div class="card center muted">\uD83D\uDD0D ' + esc(t("noResults")) + ' — "' + esc(q) + '"<br><button class="btn small gray" style="margin-top:8px" onclick="clearHomeSearch()">' + esc(t("clearSearch")) + "</button></div>"
+      : '<div class="card center muted">' + esc(t("noPosts")) + "</div>";
+    return;
+  }
   box.innerHTML = '<h3 style="margin:16px 0 8px">🔥 ' + esc(t("feedTitle")) + "</h3>" +
     '<div class="post-grid">' + list.map(p => postCardHTML(p, true)).join("") + "</div>";
 }
@@ -1371,7 +1381,95 @@ async function shopFee(sid) {
 function cartFeesTotal() {
   return Object.values(cartFees).reduce((a, f) => a + (Number(f) || 0), 0);
 }
-function cartGrandTotal() { return cartTotal() + cartFeesTotal(); }
+function cartGrandTotal() { return cartTotal() + cartFeesTotal() - couponDiscount(); }
+/* v158: skeleton placeholder HTML */
+function skelHTML(n) { let s = ""; for (let i = 0; i < (n || 2); i++) s += '<div class="skel"></div>'; return s; }
+function clearHomeSearch() {
+  homeFilter.q = "";
+  const q = document.getElementById("q");
+  if (q) q.value = "";
+  renderFeedPosts();
+}
+/* v158: photo lightbox — tap a dish photo to see it big */
+function openLightbox(url) {
+  closeLightbox();
+  const ov = document.createElement("div");
+  ov.id = "lightbox";
+  ov.className = "lightbox";
+  ov.innerHTML = '<img src="' + esc(url) + '" alt="">';
+  ov.onclick = () => closeLightbox();
+  document.body.appendChild(ov);
+}
+function closeLightbox() {
+  const ov = document.getElementById("lightbox");
+  if (ov) ov.remove();
+}
+/* v159: coupons — validated at checkout, stored on the order */
+let _coupon = null; // { code, discount_type, discount_value, min_order_yuan, max_discount_yuan }
+function couponDiscount() {
+  if (!_coupon) return 0;
+  const base = cartTotal() + cartFeesTotal();
+  let d = 0;
+  if (_coupon.discount_type === "percent") {
+    d = base * (Number(_coupon.discount_value) || 0) / 100;
+    if (_coupon.max_discount_yuan) d = Math.min(d, Number(_coupon.max_discount_yuan));
+  } else {
+    d = Number(_coupon.discount_value) || 0;
+  }
+  return Math.min(Math.max(0, Math.floor(d)), base);
+}
+async function applyCoupon() {
+  const inp = document.getElementById("co-coupon");
+  const code = (inp && inp.value || "").trim().toUpperCase();
+  if (!code) { toast("\u26A0\uFE0F " + t("couponCode")); return; }
+  try {
+    const { data, error } = await sb.from("coupons").select("*").eq("code", code).single();
+    if (error || !data) { toast("\u26A0\uFE0F " + t("couponInvalid")); return; }
+    if (!data.active) { toast("\u26A0\uFE0F " + t("couponInactive")); return; }
+    if (data.expires_at && new Date(data.expires_at) < new Date()) { toast("\u26A0\uFE0F " + t("couponExpired")); return; }
+    if ((cartTotal() + cartFeesTotal()) < (Number(data.min_order_yuan) || 0)) { toast("\u26A0\uFE0F " + t("couponMinOrder")); return; }
+    _coupon = data;
+    toast("\u2705 " + t("couponApplied") + " \u2212" + money(couponDiscount()));
+    viewCart();
+  } catch (e) { toast("\u26A0\uFE0F " + t("couponInvalid")); }
+}
+function clearCoupon() { _coupon = null; viewCart(); }
+/* v158: pull-to-refresh on list pages (touch devices) */
+function initPullToRefresh() {
+  let startY = null, armed = false;
+  const okPage = () => {
+    const h = location.hash || "#/";
+    if (document.querySelector(".modal-ov") || document.getElementById("lightbox")) return false;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT")) return false;
+    return ["", "#/", "#/orders", "#/vendor/orders", "#/vendor", "#/driver", "#/admin", "#/chats"].includes(h);
+  };
+  const ind = () => {
+    let el = document.getElementById("ptr-ind");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ptr-ind";
+      el.className = "ptr-ind";
+      el.textContent = "\u2193 " + t("releaseRefresh");
+      document.body.appendChild(el);
+    }
+    return el;
+  };
+  document.addEventListener("touchstart", (e) => {
+    if (window.scrollY <= 0 && e.touches.length === 1 && okPage()) startY = e.touches[0].clientY;
+    else startY = null;
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (startY === null) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 80) { ind().classList.add("show"); armed = true; }
+    else if (dy < 20) { ind().classList.remove("show"); armed = false; }
+  }, { passive: true });
+  document.addEventListener("touchend", () => {
+    if (armed) { ind().classList.remove("show"); armed = false; renderAll(); }
+    startY = null;
+  }, { passive: true });
+}
 async function viewCart() {
   const app = document.getElementById("app");
   const entries = Object.entries(cart.items);
@@ -1400,6 +1498,11 @@ async function viewCart() {
     (fee > 0 ? '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(fee) + "</b></div>" : "") +
     "</div>";
   }
+  html += '<div class="card"><h3>🎟️ ' + esc(t("couponCode")) + "</h3>" +
+    (_coupon
+      ? '<div class="profile-row"><span>✅ ' + esc(_coupon.code) + " (−" + money(couponDiscount()) + ')</span><button class="btn small gray" onclick="clearCoupon()">✕</button></div>'
+      : '<div style="display:flex;gap:6px"><input id="co-coupon" placeholder="CODE" style="flex:1;text-transform:uppercase"><button class="btn small" onclick="applyCoupon()">' + esc(t("applyCoupon")) + "</button></div>") +
+    "</div>";
   html += '<div class="card"><h3>📍 ' + esc(t("deliveryAddress")) + "</h3>" +
     '<div class="field"><label>' + esc(t("deliveryAddress")) + '</label><div style="display:flex;gap:6px"><input id="co-addr" style="flex:1" value="' + esc(getPref("addr", "")) + '">' +
     '<button class="btn small gray" style="white-space:nowrap" onclick="useMyLocation(\'co-addr\', false)">📍 ' + esc(t("useMyLocation")) + "</button></div></div>" +
@@ -1415,6 +1518,7 @@ async function viewCart() {
   html += '<div class="card">' +
     '<div class="profile-row"><span>' + esc(t("subtotal")) + "</span><b>" + money(cartTotal()) + "</b></div>" +
     '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(cartFeesTotal()) + "</b></div>" +
+    (_coupon ? '<div class="profile-row"><span>🎟️ ' + esc(t("discount")) + " (" + esc(_coupon.code) + ')</span><b>−' + money(couponDiscount()) + "</b></div>" : "") +
     '<div class="profile-row"><span>' + esc(t("total")) + "</span><b>" + money(cartGrandTotal()) + "</b></div>" +
     '<button class="btn" style="width:100%;margin-top:8px" onclick="checkoutAll()">' + esc(t("buyNow")) + "</button></div>";
   app.innerHTML = html;
@@ -1454,7 +1558,8 @@ function cartViewDelta(key, delta) {
     p: document.getElementById("co-phone").value,
     n: document.getElementById("co-note").value,
     pm: (document.getElementById("co-paymethod") || {}).value || "cod",
-    tx: (document.getElementById("co-txn") || {}).value || ""
+    tx: (document.getElementById("co-txn") || {}).value || "",
+    cp: (document.getElementById("co-coupon") || {}).value || ""
   } : null;
   cur.qty += delta;
   if (cur.qty <= 0) delete cart.items[key];
@@ -1469,6 +1574,8 @@ function cartViewDelta(key, delta) {
         if (pm2) { pm2.value = saved.pm; pm2.dispatchEvent(new Event("change")); }
         const tx2 = document.getElementById("co-txn");
         if (tx2) tx2.value = saved.tx;
+        const cp2 = document.getElementById("co-coupon");
+        if (cp2 && saved.cp) cp2.value = saved.cp;
       }
     }
   });
@@ -1573,7 +1680,7 @@ async function checkoutAll() {
         itemId: it.itemId, name_zh: it.name_zh, name_my: it.name_my, name_en: it.name_en,
         price: it.price, qty: it.qty
       }));
-      await placeShopOrder(sid, items, { address: addr, phone: phone, note: note, payMethod: payMethod, payTxn: payTxn });
+      await placeShopOrder(sid, items, { address: addr, phone: phone, note: note, payMethod: payMethod, payTxn: payTxn, couponCode: _coupon ? _coupon.code : "", discount: couponDiscount() });
       succeeded.push(sid);
       // decrement post stock
       for (const it of groups[sid]) {
@@ -1590,6 +1697,7 @@ async function checkoutAll() {
     }
     cart = { items: {} };
     cartFees = {};
+    _coupon = null;
     prettyToast("✅", t("orderSent"), "green");
     location.hash = "#/orders";
   } catch (e) {
@@ -1619,11 +1727,14 @@ async function placeShopOrder(shopId, items, delivery) {
   }
   const fee = await shopFee(shopId);
   const subtotal = items.reduce((a, it) => a + it.qty * it.price, 0);
-  const total = subtotal + fee;
-  const { data: order, error: oErr } = await sb.from("orders").insert({
+  const discount = delivery.discount || 0;
+  const total = Math.max(0, subtotal + fee - discount);
+  const orderRow = {
     shop_id: shopId,
     customer_id: currentUser.id,
     vendor_id: s.ownerUid,
+    coupon_code: delivery.couponCode || null,
+    discount_yuan: discount,
     // denormalized so the vendor can show who ordered without reading
     // the customer's private user row (RLS forbids it).
     // NEVER fall back to email for the name — vendor must not see it.
@@ -1634,7 +1745,13 @@ async function placeShopOrder(shopId, items, delivery) {
     note: delivery.note || null, delivery_fee_yuan: fee,
     payment_method: delivery.payMethod || "cod", payment_txn: delivery.payTxn || "",
     status: "pending", conversation_id: null
-  }).select().single();
+  };
+  let { data: order, error: oErr } = await sb.from("orders").insert(orderRow).select().single();
+  if (oErr && /coupon_code|discount_yuan|column/i.test(oErr.message || "")) {
+    // migrate-v27 not run yet — retry without the new columns.
+    delete orderRow.coupon_code; delete orderRow.discount_yuan;
+    ({ data: order, error: oErr } = await sb.from("orders").insert(orderRow).select().single());
+  }
   if (oErr) throw oErr;
   try {
     const convId = await ensureConversation(shopId, s.ownerUid);
@@ -2012,7 +2129,7 @@ async function reorder(orderId) {
 async function viewOrders() {
   if (needLogin()) return;
   const app = document.getElementById("app");
-  app.innerHTML = "<h2>📦 " + esc(t("orders")) + '</h2><div id="olist"><div class="center muted">…</div></div>';
+  app.innerHTML = "<h2>📦 " + esc(t("orders")) + '</h2><div id="olist">' + skelHTML(2) + "</div>";
   window._openOrderChat = null;
   try {
     const { data, error } = await sb.from("orders").select("*")
@@ -2151,14 +2268,21 @@ function orderCard(o, shop, isVendor) {
     // Vendor must NOT mark delivering — only the driver claims ready→delivering.
     if (o.status === "delivered") btns += '<button class="btn small green" onclick="setStatus(\'' + o.id + "','" + o.convId + "','done')\">" + esc(t("completeOrder")) + "</button>";
     if (o.status === "pending" || o.status === "accepted")
-      btns += '<button class="btn small gray" onclick="setStatus(\'' + o.id + "','" + o.convId + "','cancelled')\">" + esc(t("cancelOrder")) + "</button>";
+      btns += '<button class="btn small gray" onclick="cancelReasonSheet(\'' + o.id + "',true)\">" + esc(t("cancelOrder")) + "</button>";
+    if (o.refundStatus === "requested")
+      btns += '<button class="btn small green" onclick="setRefundStatus(\'' + o.id + "','approved')\">" + esc(t("refundApprove")) + "</button>" +
+        '<button class="btn small gray" onclick="setRefundStatus(\'' + o.id + "','rejected')\">" + esc(t("refundReject")) + "</button>";
+    if (o.refundStatus === "approved")
+      btns += '<button class="btn small green" onclick="setRefundStatus(\'' + o.id + "','returned')\">" + esc(t("refundMarkReturned")) + "</button>";
     if (o.status === "done" || o.status === "cancelled")
       btns += '<button class="btn small gray" data-varch="' + o.id + '">' + esc(t("del")) + "</button>";
   } else {
     const uc = ((window._unreadByConv || {})[o.convId] || 0);
     btns += '<button class="btn small" data-chatbtn="' + o.id + '" onclick="toggleOrderChat(\'' + o.id + "')\">" + "💬 " + esc(t("chat")) + (uc ? ' <span class="ubadge" translate="no">' + Number(uc) + "</span>" : "") + "</button>";
     if (o.status === "pending" || o.status === "accepted")
-      btns += '<button class="btn small gray" onclick="cancelMyOrder(\'' + o.id + "')\">" + esc(t("cancelOrder")) + "</button>";
+      btns += '<button class="btn small gray" onclick="cancelReasonSheet(\'' + o.id + "',false)\">" + esc(t("cancelOrder")) + "</button>";
+    if ((o.status === "delivered" || o.status === "done") && (!o.refundStatus || o.refundStatus === "none"))
+      btns += '<button class="btn small gray" onclick="refundReasonSheet(\'' + o.id + "')\">\uD83D\uDCB8 " + esc(t("refundRequest")) + "</button>";
     btns += '<button class="btn small" data-reorder="' + o.id + '">🔁 ' + esc(t("reorder")) + "</button>";
     if (o.status === "delivered")
       btns += '<button class="btn small green" data-confirmrecv="' + o.id + '">' + esc(t("confirmReceived")) + "</button>";
@@ -2190,6 +2314,12 @@ function orderCard(o, shop, isVendor) {
         (o.payTxn ? " · " + esc(o.payTxn) : "") + "</div>" : "") +
     (o.deliveryFee > 0
       ? '<div class="profile-row"><span>🛵 ' + esc(t("deliveryFee")) + "</span><b>" + money(o.deliveryFee) + "</b></div>" : "") +
+    (o.discount > 0
+      ? '<div class="profile-row"><span>🎟️ ' + esc(t("discount")) + (o.couponCode ? " (" + esc(o.couponCode) + ")" : "") + "</span><b>−" + money(o.discount) + "</b></div>" : "") +
+    (o.status === "cancelled" && o.cancelReason
+      ? '<div class="delivery-info">❌ ' + esc(t("cancelReason")) + ": " + esc(o.cancelReason) + "</div>" : "") +
+    (o.refundStatus && o.refundStatus !== "none"
+      ? '<div class="delivery-info">💸 ' + esc(t("refundStatus_" + o.refundStatus)) + (o.refundReason ? " — " + esc(o.refundReason) : "") + "</div>" : "") +
     "<b>" + esc(t("total")) + ": " + money(o.total) + "</b>" +
     (btns ? '<div class="rowbtns">' + btns + "</div>" : "") +
     (isVendor ? "" : '<div id="oc-' + o.id + '" style="margin-top:8px"></div>') + "</div></div>";
@@ -2234,6 +2364,68 @@ async function setStatus(orderId, convId, status) {
     renderAll();
   } catch (e) { toast("⚠️ " + e.message); }
 }
+/* v159: cancel with a reason — modal sheet like rateSheet */
+function cancelReasonSheet(orderId, isVendor) {
+  const m = document.createElement("div");
+  m.className = "modal-ov";
+  m.innerHTML = '<div class="modal"><h3>\u274C ' + esc(t("cancelOrder")) + "</h3>" +
+    '<div class="field"><label>' + esc(t("cancelReason")) + '</label>' +
+    '<textarea id="cancel-reason" rows="2" placeholder="' + esc(t("cancelReasonPh")) + '"></textarea></div>' +
+    '<div class="rowbtns"><button class="btn" id="cancel-confirm">' + esc(t("cancelOrder")) + '</button>' +
+    '<button class="btn gray" id="cancel-abort">' + esc(t("cancel")) + "</button></div></div>";
+  document.body.appendChild(m);
+  m.onclick = (e) => { if (e.target === m) m.remove(); };
+  m.querySelector("#cancel-abort").onclick = () => m.remove();
+  m.querySelector("#cancel-confirm").onclick = async () => {
+    const reason = m.querySelector("#cancel-reason").value.trim();
+    m.remove();
+    await doCancelOrder(orderId, reason, isVendor);
+  };
+}
+async function doCancelOrder(orderId, reason, isVendor) {
+  try {
+    const { data: cur } = await sb.from("orders").select("status").eq("id", orderId).single();
+    if (!cur || !["pending", "accepted"].includes(cur.status)) { toast("\u26A0\uFE0F " + t("invalidStatus")); return; }
+    // Try with reason; fall back to plain cancel if migrate-v27 not run yet.
+    let { error } = await sb.from("orders").update({ status: "cancelled", cancel_reason: reason || null }).eq("id", orderId);
+    if (error && /cancel_reason|column/i.test(error.message || "")) {
+      ({ error } = await sb.from("orders").update({ status: "cancelled" }).eq("id", orderId));
+    }
+    if (error) throw error;
+    renderAll();
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+}
+/* v159: refunds — customer requests, vendor approves/rejects + marks returned */
+function refundReasonSheet(orderId) {
+  const m = document.createElement("div");
+  m.className = "modal-ov";
+  m.innerHTML = '<div class="modal"><h3>\uD83D\uDCB8 ' + esc(t("refundRequest")) + "</h3>" +
+    '<div class="field"><label>' + esc(t("refundReason")) + '</label>' +
+    '<textarea id="refund-reason" rows="2"></textarea></div>' +
+    '<div class="rowbtns"><button class="btn" id="refund-confirm">' + esc(t("refundRequest")) + '</button>' +
+    '<button class="btn gray" id="refund-abort">' + esc(t("cancel")) + "</button></div></div>";
+  document.body.appendChild(m);
+  m.onclick = (e) => { if (e.target === m) m.remove(); };
+  m.querySelector("#refund-abort").onclick = () => m.remove();
+  m.querySelector("#refund-confirm").onclick = async () => {
+    const reason = m.querySelector("#refund-reason").value.trim();
+    if (!reason) { toast("\u26A0\uFE0F " + t("refundReason")); return; }
+    m.remove();
+    try {
+      const { error } = await sb.from("orders").update({ refund_status: "requested", refund_reason: reason }).eq("id", orderId);
+      if (error) throw error;
+      toast("\u2705 " + t("refundRequested"));
+      renderAll();
+    } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+  };
+}
+async function setRefundStatus(orderId, status) {
+  try {
+    const { error } = await sb.from("orders").update({ refund_status: status }).eq("id", orderId);
+    if (error) throw error;
+    renderAll();
+  } catch (e) { toast("\u26A0\uFE0F " + e.message); }
+}
 async function cancelMyOrder(orderId) {
   if (!(await confirmDlg(t("cancelOrder") + "?"))) return;
   try {
@@ -2258,7 +2450,7 @@ async function viewVendorOrdersPage() {
 async function viewVendor() {
   if (needLogin()) return;
   const app = document.getElementById("app");
-  app.innerHTML = "<h2>🏪 " + esc(t("vendorCenter")) + '</h2><div id="vbody"><div class="center muted">…</div></div>';
+  app.innerHTML = "<h2>🏪 " + esc(t("vendorCenter")) + '</h2><div id="vbody">' + skelHTML(2) + "</div>";
   const body = document.getElementById("vbody");
   if (!userDoc || (userDoc.role !== "vendor" && userDoc.role !== "admin")) {
     body.innerHTML = '<div class="notice">⚠️ ' + esc(t("loginFirst")) + "</div>";
@@ -2540,7 +2732,7 @@ async function viewChats() {
   window._openChatsView = null;
   const app = document.getElementById("app");
   app.innerHTML = '<h2>💬 ' + esc(t("chat")) + '</h2>' +
-    '<div id="chats-list"><div class="center muted">\u2026</div></div><div id="chats-view"></div>';
+    '<div id="chats-list">' + skelHTML(2) + '</div><div id="chats-view"></div>';
   const col = isV ? "vendor_id" : "customer_id";
   const readKey = isV ? "vendorReadAt" : "customerReadAt";
   const isAdmin = role === "admin";
@@ -3235,7 +3427,7 @@ async function viewDriver() {
     '<div class="tab' + (dt === 0 ? " active" : "") + '" id="dtab-avail" onclick="setDriverTab(0)">' + esc(t("availableOrders")) + "</div>" +
     '<div class="tab' + (dt === 1 ? " active" : "") + '" id="dtab-mine" onclick="setDriverTab(1)">' + esc(t("myDeliveries")) + "</div>" +
     '<div class="tab' + (dt === 2 ? " active" : "") + '" id="dtab-hist" onclick="setDriverTab(2)">' + esc(t("history")) + "</div>" +
-    '</div><div id="dbody"><div class="center muted">…</div></div>';
+    '</div><div id="dbody">' + skelHTML(2) + "</div>";
   drawDriverTab(dt);
 }
 function setDriverTab(i) {
@@ -3348,6 +3540,33 @@ async function archiveDelivery(orderId) {
 
 
 /* ---------- admin ---------- */
+/* v158: admin stats — today orders/revenue, shops, users, pending, refunds */
+async function loadAdminStats() {
+  const box = document.getElementById("astats");
+  if (!box) return;
+  try {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const iso = today.toISOString();
+    const [oc, rev, sc, uc] = await Promise.all([
+      sb.from("orders").select("id", { count: "exact", head: true }).gte("created_at", iso),
+      sb.from("orders").select("total_yuan").gte("created_at", iso).neq("status", "cancelled"),
+      sb.from("shops").select("id", { count: "exact", head: true }),
+      sb.from("users").select("id", { count: "exact", head: true })
+    ]);
+    // Refund count is optional — the column only exists after migrate-v27.
+    let rc = { count: 0 };
+    try { rc = await sb.from("orders").select("id", { count: "exact", head: true }).eq("refund_status", "requested"); } catch (e) {}
+    const revenue = (rev.data || []).reduce((a, r) => a + (Number(r.total_yuan) || 0), 0);
+    const stat = (label, val) => '<div class="stat-card"><div class="stat-num">' + esc(String(val)) + '</div><div class="stat-lbl">' + esc(label) + "</div></div>";
+    box.innerHTML =
+      stat(t("statsOrders") + " · " + t("statsToday"), oc.count || 0) +
+      stat(t("statsRevenue") + " · " + t("statsToday"), money(revenue)) +
+      stat(t("statsShops"), sc.count || 0) +
+      stat(t("statsUsers"), uc.count || 0) +
+      stat(t("statsPending"), window._pendingApprovalCount || 0) +
+      stat(t("statsRefunds"), rc.count || 0);
+  } catch (e) { box.innerHTML = ""; }
+}
 async function viewAdmin() {
   if (needLogin()) return;
   const app = document.getElementById("app");
@@ -3357,6 +3576,7 @@ async function viewAdmin() {
   }
   app.innerHTML = "<h2>🛠 " + esc(t("adminPanel")) + "</h2>" +
     '<div class="notice">' + esc(t("makeAdminTip")) + "</div>" +
+    '<div id="astats" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px">' + skelHTML(2) + "</div>" +
     '<div class="tabs admin-tabs">' +
     '<div class="tab' + (adminTab === "shops" ? " active" : "") + '" onclick="setAdminTab(\'shops\')"><span class="tic">' + ICONS.store + "</span> " + esc(t("allShops")) + "</div>" +
     '<div class="tab' + (adminTab === "users" ? " active" : "") + '" onclick="setAdminTab(\'users\')"><span class="tic">' + ICONS.user + "</span> " + esc(t("allUsers")) + "</div>" +
@@ -3365,7 +3585,9 @@ async function viewAdmin() {
     '<div class="tab' + (adminTab === "drivers" ? " active" : "") + '" onclick="setAdminTab(\'drivers\')">🛵 ' + esc(t("pendingDrivers")) + "</div>" +
     '<div class="tab' + (adminTab === "posts" ? " active" : "") + '" onclick="setAdminTab(\'posts\')">📢 ' + esc(t("posts") || "Posts") + "</div>" +
     "</div><div id=\"atab\"></div>";
+  loadAdminStats();
   const box = document.getElementById("atab");
+  box.innerHTML = skelHTML(3);
   if (adminTab === "shops") {
     const { data, error } = await sb.from("shops").select("*").order("approved", { ascending: true }).order("created_at", { ascending: false });
     if (error) { box.innerHTML = "⚠️ " + esc(error.message); return; }
